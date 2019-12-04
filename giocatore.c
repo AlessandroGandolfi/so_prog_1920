@@ -1,3 +1,14 @@
+/*
+il giocatore cerca di conquistare le pedine che
+    valgono di piú
+    sono piú vicine
+pedine distrinuitr con spazio tra di esse
+le indicazioni del giocatore consistono solo nel dare l'obiettivo da raggiungere alle pedine
+nel caso venga segnalato che una bandierina é stata presa il giocatore
+    controlla che abbia assegnato delle pedine a quella bandiera e chi l'ha presa
+        se nemico puó far continuare avanzamento delle pedine
+        se propria pedina assegna nuovo obiettivo
+*/
 #include "./config.h"
 
 int main(int argc, char **argv) {
@@ -9,7 +20,7 @@ int main(int argc, char **argv) {
     /* collegamento a sm */
     int *shared_data = shmat(shid, NULL, 0);
 
-    printf("%s: %d, val: \n", argv[0], getpid(), *shared_data);
+    printf("%s: %d, val: %d\n", argv[0], getpid(), *shared_data);
 
     sprintf(id_param, "%d", shid);
     char *param_pedine[] = { 
