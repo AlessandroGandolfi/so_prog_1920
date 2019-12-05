@@ -22,11 +22,14 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 #include "./config.h"
 
 int main(int argc, char **argv) {
+    int shid;
+    int *shared_data;
+    
     /* id sm da parametri */
-    int shid = atoi(argv[1]);
+    shid = atoi(argv[1]);
     /* collegamento a sm */
-    int *shared_data = shmat(shid, NULL, 0);
+    shared_data =  (int *) shmat(shid, NULL, 0);
 
-    printf("%s: %d, val: %d\n", argv[0], getpid(), *shared_data);
+    /* printf("%s: %d, val: %d\n", argv[0], getpid(), *shared_data); */
     exit(EXIT_SUCCESS);
 }

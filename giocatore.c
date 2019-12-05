@@ -12,28 +12,33 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 #include "./config.h"
 
 int main(int argc, char **argv) {
-    char id_param[10];
-    int status;
+    int status, i, shid;
+    int *shared_data;
     pid_t pids_pedine[SO_NUM_P];
+    char *id_param;
+    char **param_pedine;
+
     /* id sm da parametri */
-    int shid = atoi(argv[1]);
+    shid = atoi(argv[1]);
     /* collegamento a sm */
-    int *shared_data = shmat(shid, NULL, 0);
+    shared_data =  (int *) shmat(shid, NULL, 0);
+
+    id_param = (char *) malloc(sizeof(char));
+    sprintf(id_param, "%d", shid);
 
     printf("%s: %d, val: %d\n", argv[0], getpid(), *shared_data);
 
-    sprintf(id_param, "%d", shid);
-    char *param_pedine[] = { 
-        "pedina",
-        id_param,
-        NULL 
-    };
+    param_pedine = (char **) calloc(3, sizeof(char *));
+    param_pedine[0] = "pedina";
+    param_pedine[1] = id_param;
+    param_pedine[2] = NULL;
 
-    for(int i = 0; i < SO_NUM_P; i++) {
+    for(i = 0; i < SO_NUM_P; i++) {
         pids_pedine[i] = fork();
         if(!pids_pedine[i]) {
             execve("./pedina", param_pedine, NULL);
         }
+        printf("%s: %d, pedina: %d\n", argv[0], getpid(), i);
     }
 
     /* attesa terminazione di tutte le pedine */
