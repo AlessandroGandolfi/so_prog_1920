@@ -44,6 +44,16 @@
 #endif
 #endif
 
+#define DEBUG 1
+
+#define TEST_ERROR  if(errno) {fprintf(stderr, \
+                    "%s:%d: PID=%5d: Error %d (%s)\n",\
+                    __FILE__,\
+                    __LINE__,\
+                    getpid(),\
+                    errno,\
+                    strerror(errno));}
+
 typedef union {
     int val; /* Value for SETVAL */
     struct semid_ds *buf; /* Buffer for IPC_STAT, IPC_SET */
@@ -53,4 +63,12 @@ typedef union {
 #endif
 } semun;
 
-extern semun sem_arg;
+typedef struct _coordinate {
+    int x;
+    int y;
+} coord;
+
+typedef struct _bandierina {
+    coord pos_band;
+    int presa;
+} band;

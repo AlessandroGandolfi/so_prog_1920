@@ -2,40 +2,39 @@
 
 void initGiocatori(int);
 void initSemafori();
+void stampaSemafori();
 
 /* globali */
 pid_t pids_giocatori[SO_NUM_G];
 int sem_celle[SO_ALTEZZA];
 
 int main(int argc, char **argv) {
-    int *shared_data;
-    int status, shid;
+    int *sm_sem;
+    int status, mc_id_scac;
     semun arg;
     
     initSemafori();
 
+    if(DEBUG) stampaSemafori();
+
     /* creazione mem condivisa */
-    shid = shmget(IPC_PRIVATE, sizeof(int), S_IRUSR | S_IWUSR);
-    if (shid == -1) {
-        fprintf(stderr, "%s: %d. Errore in semget #%03d: %s\n", __FILE__, __LINE__, errno, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    mc_id_scac = shmget(IPC_PRIVATE, sizeof(sem_celle), S_IRUSR | S_IWUSR);
+    TEST_ERROR;
 
     /* collegamento a mem cond */
-    shared_data = (int *) shmat(shid, NULL, 0);
+    sm_sem = (int *) shmat(mc_id_scac, NULL, 0);
 
     /* valorizzazione intero in mem condivisa */
-    *shared_data = 10;
-    if(errno) {
-        fprintf(stderr, "%s: %d. Errore in shmat #%03d: %s\n", __FILE__, __LINE__, errno, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    sm_sem = sem_celle;
+    TEST_ERROR;
 
-    /* creazione giocatori, valorizzazione pids_giocatori 
-    initGiocatori(shid);*/
+    /* creazione giocatori, valorizzazione pids_giocatori */
+    initGiocatori(mc_id_scac);
 
     /* attesa terminazione di tutti i giocatori */
     while(wait(&status) > 0);
+
+    /* detach mc, rm mc, rm scac */
 
     return 0;
 }
@@ -43,31 +42,47 @@ int main(int argc, char **argv) {
 void initSemafori() {
     int i;
     semun sem_arg;
+    unsigned short val_array[SO_BASE];
 
-    sem_arg.array = (unsigned short *) malloc(sizeof(unsigned short));
+    bzero(val_array, sizeof(val_array));
+    sem_arg.array = val_array;
 
     /* qualcosa all'interno del ciclo fa esplodere il programma */
     for(i = 0; i < SO_ALTEZZA; i++) {
-        sem_arg.array[i] = i * 2;
-        sem_celle[i] = semget(IPC_PRIVATE, SO_BASE, IPC_CREAT | IPC_EXCL);
+        sem_celle[i] = semget(IPC_PRIVATE, SO_BASE, 0600);
+        TEST_ERROR;
+
         semctl(sem_celle[i], 0, SETALL, sem_arg);
+        TEST_ERROR;
     }
 
-    printf("eooooooo\n");
-    sem_arg.val = 5;
-    semctl(sem_celle[2], 3, SETVAL, sem_arg);
-    semctl(sem_celle[2], 0, GETALL, sem_arg);
-    printf("%d\n", sem_arg.array[3]);
+    if(DEBUG){ semctl(sem_celle[3], 5, SETVAL, 7);
+    TEST_ERROR;}
 }
 
-void initGiocatori(int mem_cond_id) {
+void stampaSemafori() {
+    int i, j;
+    /* implementare semun (?) */
+    unsigned short val_array[SO_BASE];
+    
+    for(i = 0; i < SO_ALTEZZA; i++) {
+        semctl(sem_celle[i], 0, GETALL, val_array);
+        TEST_ERROR;
+        for(j = 0; j < SO_BASE; j++) {  
+            printf("%u", val_array[j]);
+        }
+        printf("\n");
+    }
+}
+
+void initGiocatori(int mc_id_scac) {
     int i;
     char **param_giocatori;
-    char *id_param;
+    char id_param[3 * sizeof(mc_id_scac) + 1];
 
-    /* salvataggio mem_cond_id in id_param come stringa */
-    id_param = (char *) malloc(sizeof(char));
-    sprintf(id_param, "%d", mem_cond_id);
+    /* salvataggio mem_cond_id in id_param come stringa
+    id_param = (char *) malloc(sizeof(char)); */
+    sprintf(id_param, "%d", mc_id_scac);
 
     /* parametri a giocatore */
     param_giocatori = (char **) calloc(3, sizeof(char *));
@@ -80,6 +95,7 @@ void initGiocatori(int mem_cond_id) {
         if(!pids_giocatori[i]) {
             /* esecuzione codice giocatore */
             execve("./giocatore", param_giocatori, NULL);
+            TEST_ERROR;
         }
     }
 }
