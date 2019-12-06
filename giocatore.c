@@ -11,38 +11,38 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 */
 #include "./config.h"
 
+void initPedine(char *);
+
+/* globali */
+pid_t pids_pedine[SO_NUM_P];
+
 int main(int argc, char **argv) {
-    int status, i, shid;
-    int *shared_data;
-    pid_t pids_pedine[SO_NUM_P];
-    char *id_param;
-    char **param_pedine;
+    int status;
 
-    /* id sm da parametri */
-    shid = atoi(argv[1]);
-    /* collegamento a sm */
-    shared_data =  (int *) shmat(shid, NULL, 0);
-
-    id_param = (char *) malloc(sizeof(char));
-    sprintf(id_param, "%d", shid);
-
-    printf("%s: %d, val: %d\n", argv[0], getpid(), *shared_data);
-
-    param_pedine = (char **) calloc(3, sizeof(char *));
-    param_pedine[0] = "pedina";
-    param_pedine[1] = id_param;
-    param_pedine[2] = NULL;
-
-    for(i = 0; i < SO_NUM_P; i++) {
-        pids_pedine[i] = fork();
-        if(!pids_pedine[i]) {
-            execve("./pedina", param_pedine, NULL);
-        }
-        printf("%s: %d, pedina: %d\n", argv[0], getpid(), i);
-    }
+    /* creazione pedine, valorizzazione pids_pedine */
+    initPedine(argv[1]);
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
 
     exit(EXIT_SUCCESS);
+}
+
+void initPedine(char *mc_id_scac) {
+    int i;
+    char **param_pedine;
+
+    /* parametri a pedine */
+    param_pedine = (char **) calloc(3, sizeof(char *));
+    param_pedine[0] = "pedina";
+    param_pedine[1] = mc_id_scac;
+    param_pedine[2] = NULL;
+
+    for(i = 0; i < 1; i++) {
+        pids_pedine[i] = fork();
+        if(!pids_pedine[i]) {
+            execve("./pedina", param_pedine, NULL);
+            TEST_ERROR;
+        }
+    }
 }

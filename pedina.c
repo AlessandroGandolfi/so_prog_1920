@@ -22,14 +22,28 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 #include "./config.h"
 
 int main(int argc, char **argv) {
-    int shid;
-    int *shared_data;
-    
-    /* id sm da parametri */
-    shid = atoi(argv[1]);
-    /* collegamento a sm */
-    shared_data =  (int *) shmat(shid, NULL, 0);
+    int mc_id_scac, val, i, j;
+    int *mc_sem_scac;
+    unsigned short val_array[SO_BASE];
 
-    /* printf("%s: %d, val: %d\n", argv[0], getpid(), *shared_data); */
+    /* id sm da parametri */
+    mc_id_scac = atoi(argv[1]);
+    /* collegamento a sm */
+    mc_sem_scac = (int *) shmat(mc_id_scac, NULL, SHM_RDONLY);
+    TEST_ERROR;
+    
+    val = semctl(mc_sem_scac[3], 5, GETVAL, 7);
+    printf("%d\n", val);
+    /*
+    for(i = 0; i < SO_ALTEZZA; i++) {
+        semctl(mc_sem_scac[i], 0, GETALL, val_array);
+        TEST_ERROR;
+
+        for(j = 0; j < SO_BASE; j++)
+            printf("%u", val_array[j]);
+
+        printf("\n");
+    }
+    */
     exit(EXIT_SUCCESS);
 }

@@ -6,27 +6,22 @@ void stampaSemafori();
 
 /* globali */
 pid_t pids_giocatori[SO_NUM_G];
-int sem_celle[SO_ALTEZZA];
+int *sm_sem;
 
 int main(int argc, char **argv) {
-    int *sm_sem;
     int status, mc_id_scac;
     semun arg;
-    
-    initSemafori();
-
-    if(DEBUG) stampaSemafori();
 
     /* creazione mem condivisa */
-    mc_id_scac = shmget(IPC_PRIVATE, sizeof(sem_celle), S_IRUSR | S_IWUSR);
+    mc_id_scac = shmget(IPC_PRIVATE, sizeof(int) * SO_ALTEZZA, S_IRUSR | S_IWUSR);
     TEST_ERROR;
 
     /* collegamento a mem cond */
     sm_sem = (int *) shmat(mc_id_scac, NULL, 0);
 
-    /* valorizzazione intero in mem condivisa */
-    sm_sem = sem_celle;
-    TEST_ERROR;
+    initSemafori();
+    
+    if(DEBUG) stampaSemafori();
 
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori(mc_id_scac);
@@ -47,17 +42,18 @@ void initSemafori() {
     bzero(val_array, sizeof(val_array));
     sem_arg.array = val_array;
 
-    /* qualcosa all'interno del ciclo fa esplodere il programma */
     for(i = 0; i < SO_ALTEZZA; i++) {
-        sem_celle[i] = semget(IPC_PRIVATE, SO_BASE, 0600);
+        sm_sem[i] = semget(IPC_PRIVATE, SO_BASE, 0600);
         TEST_ERROR;
 
-        semctl(sem_celle[i], 0, SETALL, sem_arg);
+        semctl(sm_sem[i], 0, SETALL, sem_arg);
         TEST_ERROR;
     }
 
-    if(DEBUG){ semctl(sem_celle[3], 5, SETVAL, 7);
-    TEST_ERROR;}
+    if(DEBUG) { 
+        semctl(sm_sem[3], 5, SETVAL, 7);
+        TEST_ERROR;
+    }
 }
 
 void stampaSemafori() {
@@ -66,7 +62,7 @@ void stampaSemafori() {
     unsigned short val_array[SO_BASE];
     
     for(i = 0; i < SO_ALTEZZA; i++) {
-        semctl(sem_celle[i], 0, GETALL, val_array);
+        semctl(sm_sem[i], 0, GETALL, val_array);
         TEST_ERROR;
         for(j = 0; j < SO_BASE; j++) {  
             printf("%u", val_array[j]);
