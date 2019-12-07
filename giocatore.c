@@ -38,7 +38,7 @@ void initPedine(char *mc_id_scac) {
     param_pedine[1] = mc_id_scac;
     param_pedine[2] = NULL;
 
-    for(i = 0; i < 1; i++) {
+    for(i = 0; i < SO_NUM_P; i++) {
         pids_pedine[i] = fork();
         if(!pids_pedine[i]) {
             execve("./pedina", param_pedine, NULL);

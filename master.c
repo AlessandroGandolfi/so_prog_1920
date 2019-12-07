@@ -1,12 +1,13 @@
 #include "./config.h"
 
 void initGiocatori(int);
-void initSemafori();
-void stampaSemafori();
+void initScacchiera();
+void rmScacchiera();
+void stampaScacchiera();
 
 /* globali */
 pid_t pids_giocatori[SO_NUM_G];
-int *sm_sem;
+int *mc_sem_scac;
 
 int main(int argc, char **argv) {
     int status, mc_id_scac;
@@ -17,24 +18,32 @@ int main(int argc, char **argv) {
     TEST_ERROR;
 
     /* collegamento a mem cond */
-    sm_sem = (int *) shmat(mc_id_scac, NULL, 0);
+    mc_sem_scac = (int *) shmat(mc_id_scac, NULL, 0);
+    TEST_ERROR;
 
-    initSemafori();
+    initScacchiera();
     
-    if(DEBUG) stampaSemafori();
+    if(DEBUG) stampaScacchiera();
 
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori(mc_id_scac);
 
     /* attesa terminazione di tutti i giocatori */
-    while(wait(&status) > 0);
+    // i giocatori finiscono prima di questo ciclo, errore no child processes
+    while(wait(&status) > 0) TEST_ERROR;
 
     /* detach mc, rm mc, rm scac */
+    rmScacchiera();
+
+    shmdt(mc_sem_scac);
+    TEST_ERROR;
+	shmctl(mc_id_scac, IPC_RMID, NULL);
+    TEST_ERROR;
 
     return 0;
 }
 
-void initSemafori() {
+void initScacchiera() {
     int i;
     semun sem_arg;
     unsigned short val_array[SO_BASE];
@@ -43,26 +52,36 @@ void initSemafori() {
     sem_arg.array = val_array;
 
     for(i = 0; i < SO_ALTEZZA; i++) {
-        sm_sem[i] = semget(IPC_PRIVATE, SO_BASE, 0600);
+        mc_sem_scac[i] = semget(IPC_PRIVATE, SO_BASE, 0600);
         TEST_ERROR;
 
-        semctl(sm_sem[i], 0, SETALL, sem_arg);
+        semctl(mc_sem_scac[i], 0, SETALL, sem_arg);
         TEST_ERROR;
     }
 
     if(DEBUG) { 
-        semctl(sm_sem[3], 5, SETVAL, 7);
+        semctl(mc_sem_scac[3], 5, SETVAL, 7);
         TEST_ERROR;
     }
 }
 
-void stampaSemafori() {
+void rmScacchiera() {
+    int i;
+
+    for(i = 0; i < SO_ALTEZZA; i++) {
+        semctl(mc_sem_scac[i], 0, IPC_RMID);
+        TEST_ERROR;
+    }
+}
+
+void stampaScacchiera() {
     int i, j;
     /* implementare semun (?) */
     unsigned short val_array[SO_BASE];
     
+    /* da gestire caso in cui semaforo a 0 (cella occupata) */
     for(i = 0; i < SO_ALTEZZA; i++) {
-        semctl(sm_sem[i], 0, GETALL, val_array);
+        semctl(mc_sem_scac[i], 0, GETALL, val_array);
         TEST_ERROR;
         for(j = 0; j < SO_BASE; j++) {  
             printf("%u", val_array[j]);
@@ -88,6 +107,7 @@ void initGiocatori(int mc_id_scac) {
 
     for(i = 0; i < SO_NUM_G; i++) {
         pids_giocatori[i] = fork();
+        TEST_ERROR;
         if(!pids_giocatori[i]) {
             /* esecuzione codice giocatore */
             execve("./giocatore", param_giocatori, NULL);

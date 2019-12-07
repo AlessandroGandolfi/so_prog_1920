@@ -33,17 +33,12 @@ int main(int argc, char **argv) {
     TEST_ERROR;
     
     val = semctl(mc_sem_scac[3], 5, GETVAL, 7);
+    TEST_ERROR;
+
     printf("%d\n", val);
-    /*
-    for(i = 0; i < SO_ALTEZZA; i++) {
-        semctl(mc_sem_scac[i], 0, GETALL, val_array);
-        TEST_ERROR;
+    
+    shmdt(mc_sem_scac);
+    TEST_ERROR;
 
-        for(j = 0; j < SO_BASE; j++)
-            printf("%u", val_array[j]);
-
-        printf("\n");
-    }
-    */
     exit(EXIT_SUCCESS);
 }
