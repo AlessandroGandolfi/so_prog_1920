@@ -28,9 +28,10 @@ int main(int argc, char **argv) {
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori(mc_id_scac);
 
-    /* attesa terminazione di tutti i giocatori */
-    // i giocatori finiscono prima di questo ciclo, errore no child processes
-    while(wait(&status) > 0) TEST_ERROR;
+    /* attesa terminazione di tutti i giocatori
+    i giocatori finiscono prima di questo ciclo, errore no child processes */
+    while(wait(&status) > 0);
+    TEST_ERROR;
 
     /* detach mc, rm mc, rm scac */
     rmScacchiera();
@@ -48,7 +49,9 @@ void initScacchiera() {
     semun sem_arg;
     unsigned short val_array[SO_BASE];
 
-    bzero(val_array, sizeof(val_array));
+    /* bzero(val_array, sizeof(val_array)); */
+    
+    for(i = 0; i < SO_BASE; i++) val_array[i] = 1;
     sem_arg.array = val_array;
 
     for(i = 0; i < SO_ALTEZZA; i++) {
@@ -96,6 +99,8 @@ void initGiocatori(int mc_id_scac) {
     char id_param[3 * sizeof(mc_id_scac) + 1];
 
     /* salvataggio mem_cond_id in id_param come stringa
+
+    uso nel caso debba salvare anche altri dati di dimensione diversa
     id_param = (char *) malloc(sizeof(char)); */
     sprintf(id_param, "%d", mc_id_scac);
 

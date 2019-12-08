@@ -24,6 +24,7 @@ int main(int argc, char **argv) {
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
+    TEST_ERROR;
 
     exit(EXIT_SUCCESS);
 }

@@ -52,7 +52,8 @@
                     __LINE__,\
                     getpid(),\
                     errno,\
-                    strerror(errno));}
+                    strerror(errno));\
+                    errno = 0;}
 
 typedef union {
     int val; /* Value for SETVAL */
