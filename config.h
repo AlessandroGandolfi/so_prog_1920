@@ -53,7 +53,7 @@
                     getpid(),\
                     errno,\
                     strerror(errno));\
-                    errno = 0;}
+                    errno=0;}
 
 typedef union {
     int val; /* Value for SETVAL */
@@ -73,3 +73,10 @@ typedef struct _bandierina {
     coord pos_band;
     int presa;
 } band;
+
+typedef struct _pedina {
+    band obiettivo;
+    coord pos_attuale;
+    coord *percorso;
+    int mosse_rim;
+} ped;

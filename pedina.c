@@ -22,23 +22,24 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 #include "./config.h"
 
 int main(int argc, char **argv) {
-    int mc_id_scac, val, i, j;
+    int mc_id_scac, i, j;
     int *mc_sem_scac;
     unsigned short val_array[SO_BASE];
+    struct timespec arg_sleep;
 
-    /* id sm da parametri */
+    /* setup scacchiera */
     mc_id_scac = atoi(argv[1]);
-    /* collegamento a sm */
     mc_sem_scac = (int *) shmat(mc_id_scac, NULL, SHM_RDONLY);
     TEST_ERROR;
     
-    val = semctl(mc_sem_scac[3], 5, GETVAL, 7);
-    TEST_ERROR;
+    arg_sleep.tv_sec = 0;
+    arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
+    nanosleep(&arg_sleep, NULL);
 
-    printf("%d\n", val);
-    
     shmdt(mc_sem_scac);
     TEST_ERROR;
+
+    printf("pid padre pedina: %d\n", getppid());
 
     exit(EXIT_SUCCESS);
 }

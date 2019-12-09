@@ -28,8 +28,7 @@ int main(int argc, char **argv) {
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori(mc_id_scac);
 
-    /* attesa terminazione di tutti i giocatori
-    i giocatori finiscono prima di questo ciclo, errore no child processes */
+    /* attesa terminazione di tutti i giocatori */
     while(wait(&status) > 0);
     TEST_ERROR;
 
