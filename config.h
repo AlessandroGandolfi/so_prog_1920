@@ -80,3 +80,10 @@ typedef struct _pedina {
     coord *percorso;
     int mosse_rim;
 } ped;
+
+typedef struct _giocatore {
+    pid_t pid;
+    int punteggio;
+    int mc_id_squadra;
+    int tot_mosse_rim;
+} gioc;

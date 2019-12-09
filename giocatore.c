@@ -11,7 +11,7 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 */
 #include "./config.h"
 
-void initPedine(char *);
+void initPedine(char *, int, char *, char *);
 
 /* globali */
 pid_t pids_pedine[SO_NUM_P];
@@ -21,14 +21,10 @@ int mc_id_squadra;
 int main(int argc, char **argv) {
     int status;
 
-    /* array di pedine con relative informazioni, visibile solo alla squadra */
-    mc_id_squadra = shmget(IPC_PRIVATE, sizeof(ped) * SO_NUM_P, S_IRUSR | S_IWUSR);
-    TEST_ERROR;
-
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
 
     /* creazione pedine, valorizzazione pids_pedine */
-    initPedine(argv[1]);
+    initPedine(argv[0], atoi(argv[1]), argv[2], argv[3]);
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
@@ -42,9 +38,10 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
 }
 
-void initPedine(char *mc_id_scac) {
+void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_squadra) {
     int i;
     char **param_pedine;
+    struct sembuf sops;
 
     /* parametri a pedine */
     param_pedine = (char **) calloc(4, sizeof(char *));
@@ -53,6 +50,21 @@ void initPedine(char *mc_id_scac) {
     param_pedine[3] = NULL;
 
     for(i = 0; i < SO_NUM_P; i++) {
+        /* check posizioni */
+        sops.sem_num = pos_token;
+        sops.sem_op = -1;
+        sops.sem_flg = 0;
+        semop(token_gioc, &sops, 1);
+
+        // occupa cella
+        
+        /* rilascia token successivo */
+        sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
+        sops.sem_op = 1;
+        sops.sem_flg = 0;
+        semop(token_gioc, &sops, 1);
+
+        /* creazione proc pedine */
         pids_pedine[i] = fork();
         if(!pids_pedine[i]) {
             /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
