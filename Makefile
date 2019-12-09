@@ -1,4 +1,4 @@
-CFLAGS = -std=c89 -pedantic
+#CFLAGS = -std=c89 -pedantic
 
 all: clean master giocatore pedina
 
