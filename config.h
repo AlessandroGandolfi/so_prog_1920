@@ -44,7 +44,7 @@
 #endif
 #endif
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define TEST_ERROR  if(errno) {fprintf(stderr, \
                     "%s:%d: PID=%5d: Error %d (%s)\n",\
@@ -53,7 +53,7 @@
                     getpid(),\
                     errno,\
                     strerror(errno));\
-                    errno=0;}
+                    errno = 0;}
 
 typedef union {
     int val; /* Value for SETVAL */
@@ -71,6 +71,7 @@ typedef struct _coordinate {
 
 typedef struct _bandierina {
     coord pos_band;
+    int punti;
     int presa;
 } band;
 

@@ -12,7 +12,7 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 #include "./config.h"
 
 void initPedine(char *, int, char *, char *);
-void piazzaPedina(int, int, int);
+void piazzaPedina(int);
 int checkPosPedine(int, int);
 
 /* globali */
@@ -31,46 +31,48 @@ parametri a giocatore
 int main(int argc, char **argv) {
     int status, i;
 
-    // fare srand se serve
+    srand(time(NULL) + getpid());
 
     /* collegamento a mem cond */
     mc_ped_squadra = (ped *) shmat(atoi(argv[3]), NULL, 0);
     TEST_ERROR;
+    
+    mc_sem_scac = (int *) shmat(atoi(argv[2]), NULL, 0);
+    TEST_ERROR;
+    
+    /* creazione pedine, valorizzazione pids_pedine */
+    initPedine(argv[0], atoi(argv[1]), argv[2], argv[3]);
 
-        printf("1\n");
-    for(i = 0; i < SO_NUM_P; i++) {
-        printf("giocatore num %d, pedina %d\n", (atoi(argv[1]), mc_ped_squadra[i].mosse_rim));
-    }
-        printf("2\n");
-    // mc_sem_scac = (int *) shmat(atoi(argv[2]), NULL, 0);
-    // TEST_ERROR;
+    // for(i = 0; i < SO_NUM_P; i++) {
+    //     printf("giocatore num %d, pedina %d, x %d, y %d\n", atoi(argv[1]), (i + 1), mc_ped_squadra[i].pos_attuale.x, mc_ped_squadra[i].pos_attuale.y);
+    // }
 
-    // /* creazione pedine, valorizzazione pids_pedine */
-    // initPedine(argv[0], atoi(argv[1]), argv[2], argv[3]);
-
-    // /* attesa terminazione di tutte le pedine */
+    /* attesa terminazione di tutte le pedine */
     // while(wait(&status) > 0);
     // TEST_ERROR;
 
-    // shmdt(mc_sem_scac);
-    // TEST_ERROR;
+    shmdt(mc_sem_scac);
+    TEST_ERROR;
 
-    // shmdt(mc_ped_squadra);
-    // TEST_ERROR;
+    shmdt(mc_ped_squadra);
+    TEST_ERROR;
 
     exit(EXIT_SUCCESS);
 }
 
 void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_squadra) {
     int i;
-    char **param_pedine;
+    char *param_pedine[4];
+    char tmp_params[2][sizeof(char *)];
     struct sembuf sops;
 
     /* parametri a pedine */
-    param_pedine = (char **) calloc(4, sizeof(char *));
     param_pedine[0] = mc_id_scac;
-    sprintf(param_pedine[1], "%d", mc_id_squadra);
+    sprintf(tmp_params[0], "%d", mc_id_squadra);
+    param_pedine[1] = tmp_params[0];
     param_pedine[3] = NULL;
+    
+    for(i = 0; i < SO_NUM_P; i++) mc_ped_squadra[i].pos_attuale = (coord) { .x = -1, .y = -1 };
 
     for(i = 0; i < SO_NUM_P; i++) {
         /* check posizioni */
@@ -79,50 +81,50 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_s
         sops.sem_flg = 0;
         semop(atoi(token_gioc), &sops, 1);
 
-        piazzaPedina(atoi(mc_id_scac), atoi(mc_id_squadra), i);
+        piazzaPedina(i);
         
         /* 
-            rilascia token successivo
-            quarto giocatore a mettere ultima pedina non rilascia risorsa primo giocatore
-
-            si potrebbe usare per una wait for zero?
+        rilascia token successivo
+        si potrebbe usare per una wait for zero?
         */
-        if(i != (SO_NUM_P - 1) && pos_token != (SO_NUM_G - 1)) {
-            sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
-            sops.sem_op = 1;
-            sops.sem_flg = 0;
-            semop(atoi(token_gioc), &sops, 1);
-        }
+        sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
+        sops.sem_op = 1;
+        sops.sem_flg = 0;
+        semop(atoi(token_gioc), &sops, 1);
 
         /* creazione proc pedine */
-        pids_pedine[i] = fork();
+        // pids_pedine[i] = fork();
 
-        switch(pids_pedine[i]) {
-            case -1:
-                TEST_ERROR;
-                exit(EXIT_FAILURE);
-            case 0:
-                /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
-                sprintf(param_pedine[2], "%d", i);
-                execve("./pedina", param_pedine, NULL);
-                TEST_ERROR;
-        }
+        // switch(pids_pedine[i]) {
+        //     case -1:
+        //         TEST_ERROR;
+        //         exit(EXIT_FAILURE);
+        //     case 0:
+        //         /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
+        //         sprintf(tmp_params[1], "%d", i);
+        //         param_pedine[2] = tmp_params[1];
+        //         execve("./pedina", param_pedine, NULL);
+        //         TEST_ERROR;
+        //         exit(EXIT_FAILURE);
+        // }
     }
 }
 
-void piazzaPedina(int mc_id_scac, int mc_id_squadra, int ind_pedine) {
+void piazzaPedina(int ind_pedine) {
     int riga, colonna;
     struct sembuf sops;
-    ped nuovaPedina;
 
     do {
-        riga = rand() % SO_ALTEZZA;
-        colonna = rand() % SO_BASE;
+        // TEST_ERROR;
+        do {
+            riga = rand() % SO_ALTEZZA;
+            colonna = rand() % SO_BASE;
+        } while(checkPosPedine(riga, colonna));
 
         sops.sem_num = colonna;
         sops.sem_op = -1;
-        sops.sem_flg = 0;
-    } while(semop(mc_sem_scac[riga], &sops, 1) == -1 && checkPosPedine(riga, colonna));
+        sops.sem_flg = IPC_NOWAIT;
+    } while(semop(mc_sem_scac[riga], &sops, 1) == -1);
 
     mc_ped_squadra[ind_pedine].mosse_rim = SO_N_MOVES;
     mc_ped_squadra[ind_pedine].pos_attuale.x = colonna;
@@ -130,5 +132,17 @@ void piazzaPedina(int mc_id_scac, int mc_id_squadra, int ind_pedine) {
 }
 
 int checkPosPedine(int riga, int colonna) {
-    return 1;
+    int i, check, dif_riga, dif_col;
+
+    i = 0;
+    check = 0;
+
+    while(mc_ped_squadra[i].pos_attuale.x != -1 && mc_ped_squadra[i].pos_attuale.y != -1 && i < SO_NUM_G && check == 1) {
+        dif_riga = abs(riga - mc_ped_squadra[i].pos_attuale.y);
+        dif_col = abs(colonna - mc_ped_squadra[i].pos_attuale.x);
+        if(dif_col < 5 || dif_riga < 5) check = 1;
+        i++;
+    }
+
+    return check;
 }

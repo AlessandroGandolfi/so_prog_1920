@@ -21,25 +21,20 @@ int main(int argc, char **argv) {
     mc_sem_scac = (int *) shmat(mc_id_scac, NULL, 0);
     TEST_ERROR;
 
-        printf("3\n");
     initScacchiera();
-    
-        printf("4\n");
-    if(DEBUG) stampaScacchiera();
 
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori(mc_id_scac);
 
-        printf("5\n");
     /* attesa terminazione di tutti i giocatori */
     while(wait(&status) > 0);
     TEST_ERROR;
 
-        printf("6\n");
+    if(DEBUG) stampaScacchiera();
+
     /* detach mc, rm mc, rm sem scac */
     somebodyTookMyShmget();
 
-        printf("7\n");
     return 0;
 }
 
@@ -56,11 +51,6 @@ void initScacchiera() {
         TEST_ERROR;
 
         semctl(mc_sem_scac[i], 0, SETALL, sem_arg);
-        TEST_ERROR;
-    }
-
-    if(DEBUG) { 
-        semctl(mc_sem_scac[3], 5, SETVAL, 7);
         TEST_ERROR;
     }
 }
@@ -100,8 +90,13 @@ void stampaScacchiera() {
         semctl(mc_sem_scac[i], 0, GETALL, val_array);
         TEST_ERROR;
         for(j = 0; j < SO_BASE; j++) {
-            /* gestione stampa pedina giocatore, punteggio somma mosse rimanenti */ 
-            printf("%u", val_array[j]);
+            if(!val_array[j]) {
+                printf("\033[1;31m");
+                /* gestione stampa pedina giocatore, punteggio somma mosse rimanenti */ 
+                printf("%u", val_array[j]);
+                printf("\033[0m");
+            } else
+                printf("%u", val_array[j]);
         }
         printf("\n");
     }
@@ -112,7 +107,8 @@ void stampaScacchiera() {
 
 void initGiocatori(int mc_id_scac) {
     int i;
-    char **param_giocatori;
+    char *param_giocatori[5];
+    char tmp_params[4][sizeof(char *)];
     semun sem_arg;
     unsigned short val_array[SO_BASE];
     
@@ -125,25 +121,22 @@ void initGiocatori(int mc_id_scac) {
     semctl(token_gioc, 0, SETALL, sem_arg);
     TEST_ERROR;
 
-        printf("8\n");
     /* 
     parametri a giocatore 
         - id token per posizionamento pedine
         - indice proprio token
         - id mc scacchiera
         - id mc squadra
+    
+    salvataggio mem_cond_id in id_param come stringa 
     */
-    /* salvataggio mem_cond_id in id_param come stringa
 
-    uso nel caso debba salvare anche altri dati di dimensione diversa
-    id_param = (char *) malloc(sizeof(char)); */
-
-    // segmentation fault
-    param_giocatori = (char **) calloc(5, sizeof(char *));
-    sprintf(param_giocatori[0], "%d", token_gioc);
-    sprintf(param_giocatori[2], "%d", mc_id_scac);
+    sprintf(tmp_params[0], "%d", token_gioc);
+    param_giocatori[0] = tmp_params[0];
+    sprintf(tmp_params[2], "%d", mc_id_scac);
+    param_giocatori[2] = tmp_params[2];
     param_giocatori[4] = NULL;
-        printf("9\n");
+
 
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].punteggio = 0;
@@ -152,9 +145,12 @@ void initGiocatori(int mc_id_scac) {
         TEST_ERROR;
 
         /* posizione token giocatore */
-        sprintf(param_giocatori[1], "%d", i);
+        sprintf(tmp_params[1], "%d", i);
+        param_giocatori[1] = tmp_params[1];
+        
         /* passaggio id mc di squadra come parametro a giocatori */
-        sprintf(param_giocatori[3], "%d", giocatori[i].mc_id_squadra);
+        sprintf(tmp_params[3], "%d", giocatori[i].mc_id_squadra);
+        param_giocatori[3] = tmp_params[3];
 
         giocatori[i].pid = fork();
         TEST_ERROR;
