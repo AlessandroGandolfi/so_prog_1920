@@ -11,6 +11,7 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/sem.h>
+#include <math.h>
 
 #ifndef EASY
 #ifndef HARD
@@ -29,6 +30,8 @@
 #define SO_ROUND_SCORE 10
 #define SO_N_MOVES 20
 #define SO_MIN_HOLD_NSEC 100000000
+
+#define DIST_PED_GIOC 8 /* < 10 */
 #else
 #ifdef HARD
 #define SO_NUM_G 4
@@ -41,10 +44,13 @@
 #define SO_ROUND_SCORE 200
 #define SO_N_MOVES 200
 #define SO_MIN_HOLD_NSEC 100000000
+
+#define DIST_PED_GIOC 2 /* < 3 */
 #endif
 #endif
 
 #define DEBUG 1
+#define ENABLE_COLORS 1
 
 #define TEST_ERROR  if(errno) {fprintf(stderr, \
                     "%s:%d: PID=%5d: Error %d (%s)\n",\

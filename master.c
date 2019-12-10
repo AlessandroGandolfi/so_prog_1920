@@ -2,7 +2,7 @@
 
 void initGiocatori(int);
 void initScacchiera();
-void somebodyTookMyShmget();
+void somebodyTookMaShmget();
 void stampaScacchiera();
 
 /* globali */
@@ -25,15 +25,18 @@ int main(int argc, char **argv) {
 
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori(mc_id_scac);
+    
+    if(DEBUG) {
+        sleep(2);
+        stampaScacchiera();
+    }
 
     /* attesa terminazione di tutti i giocatori */
     while(wait(&status) > 0);
     TEST_ERROR;
 
-    if(DEBUG) stampaScacchiera();
-
     /* detach mc, rm mc, rm sem scac */
-    somebodyTookMyShmget();
+    somebodyTookMaShmget();
 
     return 0;
 }
@@ -55,7 +58,7 @@ void initScacchiera() {
     }
 }
 
-void somebodyTookMyShmget() {
+void somebodyTookMaShmget() {
     int i;
 
     for(i = 0; i < SO_ALTEZZA; i++) {
@@ -64,10 +67,6 @@ void somebodyTookMyShmget() {
     }
 
     for(i = 0; i < SO_NUM_G; i++) {
-        /*
-        shmdt(mc_sem_scac);
-        TEST_ERROR;
-        */
         shmctl(giocatori[i].mc_id_squadra, IPC_RMID, NULL);
         TEST_ERROR;
     }
@@ -82,25 +81,52 @@ void stampaScacchiera() {
     int i, j;
     /* implementare semun (?) */
     unsigned short val_array[SO_BASE];
-
-    for(i = 0; i < SO_NUM_G; i++) giocatori[i].tot_mosse_rim = 0;
+    char scacchiera[SO_ALTEZZA][SO_BASE];
+    ped *mc_ped_squadra;
     
-    /* da gestire caso in cui semaforo a 0 (cella occupata) */
+    for(i = 0; i < SO_ALTEZZA; i++)
+        for(j = 0; j < SO_BASE; j++)
+            scacchiera[i][j] = '0';
+    
+
+    for(i = 0; i < SO_NUM_G; i++) {
+        giocatori[i].tot_mosse_rim = 0;
+        mc_ped_squadra = (ped *) shmat(giocatori[i].mc_id_squadra, NULL, 0);
+
+        for(j = 0; j < SO_NUM_P; j++) {
+            scacchiera[mc_ped_squadra[j].pos_attuale.y][mc_ped_squadra[j].pos_attuale.x] = (i + 1) + '0';
+            giocatori[i].tot_mosse_rim += mc_ped_squadra[j].mosse_rim;
+        }
+    }
+
     for(i = 0; i < SO_ALTEZZA; i++) {
-        semctl(mc_sem_scac[i], 0, GETALL, val_array);
-        TEST_ERROR;
         for(j = 0; j < SO_BASE; j++) {
-            if(!val_array[j]) {
-                printf("\033[1;31m");
-                /* gestione stampa pedina giocatore, punteggio somma mosse rimanenti */ 
-                printf("%u", val_array[j]);
-                printf("\033[0m");
-            } else
-                printf("%u", val_array[j]);
+            if(ENABLE_COLORS) {
+                switch(scacchiera[i][j]) {
+                    case '1':
+                        printf("\033[1;31m");
+                        break;
+                    case '2':
+                        printf("\033[1;34m");
+                        break;
+                    case '3':
+                        printf("\033[1;32m");
+                        break;
+                    case '4':
+                        printf("\033[1;36m");
+                        break;
+                    default:
+                        printf("\033[0m");
+                        break;
+                }
+            }
+            printf("%c", scacchiera[i][j]);
         }
         printf("\n");
     }
     
+    if(ENABLE_COLORS) printf("\033[0m");
+
     for(i = 0; i < SO_NUM_G; i++) 
         printf("Punteggio giocatore %d: %d, %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
 }
@@ -125,8 +151,8 @@ void initGiocatori(int mc_id_scac) {
     parametri a giocatore 
         - id token per posizionamento pedine
         - indice proprio token
-        - id mc scacchiera
-        - id mc squadra
+        - id mc scacchiera, array id set semafori
+        - id mc squadra, array pedine
     
     salvataggio mem_cond_id in id_param come stringa 
     */

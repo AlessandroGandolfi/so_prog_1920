@@ -14,6 +14,7 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 void initPedine(char *, int, char *, char *);
 void piazzaPedina(int);
 int checkPosPedine(int, int);
+int calcDist(int, int, int, int);
 
 /* globali */
 pid_t pids_pedine[SO_NUM_P];
@@ -43,13 +44,9 @@ int main(int argc, char **argv) {
     /* creazione pedine, valorizzazione pids_pedine */
     initPedine(argv[0], atoi(argv[1]), argv[2], argv[3]);
 
-    // for(i = 0; i < SO_NUM_P; i++) {
-    //     printf("giocatore num %d, pedina %d, x %d, y %d\n", atoi(argv[1]), (i + 1), mc_ped_squadra[i].pos_attuale.x, mc_ped_squadra[i].pos_attuale.y);
-    // }
-
     /* attesa terminazione di tutte le pedine */
-    // while(wait(&status) > 0);
-    // TEST_ERROR;
+    while(wait(&status) > 0);
+    TEST_ERROR;
 
     shmdt(mc_sem_scac);
     TEST_ERROR;
@@ -66,7 +63,12 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_s
     char tmp_params[2][sizeof(char *)];
     struct sembuf sops;
 
-    /* parametri a pedine */
+    /* 
+    parametri a pedine
+        - id mc scacchiera, array id set semafori
+        - id mc squadra, array pedine
+        - indice identificativo pedina dell'array in mc squadra
+    */
     param_pedine[0] = mc_id_scac;
     sprintf(tmp_params[0], "%d", mc_id_squadra);
     param_pedine[1] = tmp_params[0];
@@ -81,8 +83,10 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_s
         sops.sem_flg = 0;
         semop(atoi(token_gioc), &sops, 1);
 
+        if(DEBUG) printf("gioc: %d\tped: %d\n", pos_token, i);
+
         piazzaPedina(i);
-        
+
         /* 
         rilascia token successivo
         si potrebbe usare per una wait for zero?
@@ -93,29 +97,28 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_s
         semop(atoi(token_gioc), &sops, 1);
 
         /* creazione proc pedine */
-        // pids_pedine[i] = fork();
+        pids_pedine[i] = fork();
 
-        // switch(pids_pedine[i]) {
-        //     case -1:
-        //         TEST_ERROR;
-        //         exit(EXIT_FAILURE);
-        //     case 0:
-        //         /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
-        //         sprintf(tmp_params[1], "%d", i);
-        //         param_pedine[2] = tmp_params[1];
-        //         execve("./pedina", param_pedine, NULL);
-        //         TEST_ERROR;
-        //         exit(EXIT_FAILURE);
-        // }
+        switch(pids_pedine[i]) {
+            case -1:
+                TEST_ERROR;
+                exit(EXIT_FAILURE);
+            case 0:
+                /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
+                sprintf(tmp_params[1], "%d", i);
+                param_pedine[2] = tmp_params[1];
+                execve("./pedina", param_pedine, NULL);
+                TEST_ERROR;
+                exit(EXIT_FAILURE);
+        }
     }
 }
 
 void piazzaPedina(int ind_pedine) {
     int riga, colonna;
     struct sembuf sops;
-
+    
     do {
-        // TEST_ERROR;
         do {
             riga = rand() % SO_ALTEZZA;
             colonna = rand() % SO_BASE;
@@ -132,17 +135,28 @@ void piazzaPedina(int ind_pedine) {
 }
 
 int checkPosPedine(int riga, int colonna) {
-    int i, check, dif_riga, dif_col;
+    int i, check;
 
     i = 0;
     check = 0;
 
-    while(mc_ped_squadra[i].pos_attuale.x != -1 && mc_ped_squadra[i].pos_attuale.y != -1 && i < SO_NUM_G && check == 1) {
-        dif_riga = abs(riga - mc_ped_squadra[i].pos_attuale.y);
-        dif_col = abs(colonna - mc_ped_squadra[i].pos_attuale.x);
-        if(dif_col < 5 || dif_riga < 5) check = 1;
+    while(mc_ped_squadra[i].pos_attuale.x != -1 && mc_ped_squadra[i].pos_attuale.y != -1 && i < SO_NUM_P && check == 0) {
+        if(calcDist(colonna, mc_ped_squadra[i].pos_attuale.x, riga, mc_ped_squadra[i].pos_attuale.y) < DIST_PED_GIOC) check++;
         i++;
     }
 
     return check;
+}
+
+int calcDist(int x1, int x2, int y1, int y2) {
+    int distanza, dif_riga, dif_col, dif_min, dif_max;
+
+    dif_riga = abs(y1 - y2);
+    dif_col = abs(x1 - x2);
+    
+    dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
+    dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
+    distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
+
+    return distanza;
 }

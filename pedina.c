@@ -22,13 +22,12 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 #include "./config.h"
 
 int main(int argc, char **argv) {
-    int mc_id_scac, i, j;
+    int mc_id_scac;
     int *mc_sem_scac;
-    unsigned short val_array[SO_BASE];
     struct timespec arg_sleep;
 
     /* setup scacchiera */
-    mc_id_scac = atoi(argv[1]);
+    mc_id_scac = atoi(argv[0]);
     mc_sem_scac = (int *) shmat(mc_id_scac, NULL, SHM_RDONLY);
     TEST_ERROR;
     
@@ -38,8 +37,6 @@ int main(int argc, char **argv) {
 
     shmdt(mc_sem_scac);
     TEST_ERROR;
-
-    printf("pid padre pedina: %d\n", getppid());
 
     exit(EXIT_SUCCESS);
 }
