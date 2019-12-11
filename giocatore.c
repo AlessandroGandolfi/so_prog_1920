@@ -74,7 +74,10 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_s
     param_pedine[1] = tmp_params[0];
     param_pedine[3] = NULL;
     
-    for(i = 0; i < SO_NUM_P; i++) mc_ped_squadra[i].pos_attuale = (coord) { .x = -1, .y = -1 };
+    for(i = 0; i < SO_NUM_P; i++) {
+        mc_ped_squadra[i].pos_attuale.x = -1; 
+        mc_ped_squadra[i].pos_attuale.y = -1;
+    }
 
     for(i = 0; i < SO_NUM_P; i++) {
         /* check posizioni */

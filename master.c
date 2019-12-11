@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     initGiocatori(mc_id_scac);
     
     if(DEBUG) {
-        sleep(2);
+        sleep(3);
         stampaScacchiera();
     }
 
@@ -79,8 +79,6 @@ void somebodyTookMaShmget() {
 
 void stampaScacchiera() {
     int i, j;
-    /* implementare semun (?) */
-    unsigned short val_array[SO_BASE];
     char scacchiera[SO_ALTEZZA][SO_BASE];
     ped *mc_ped_squadra;
     
@@ -92,11 +90,15 @@ void stampaScacchiera() {
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].tot_mosse_rim = 0;
         mc_ped_squadra = (ped *) shmat(giocatori[i].mc_id_squadra, NULL, 0);
+        TEST_ERROR;
 
         for(j = 0; j < SO_NUM_P; j++) {
             scacchiera[mc_ped_squadra[j].pos_attuale.y][mc_ped_squadra[j].pos_attuale.x] = (i + 1) + '0';
             giocatori[i].tot_mosse_rim += mc_ped_squadra[j].mosse_rim;
         }
+
+        shmdt(mc_ped_squadra);
+        TEST_ERROR;
     }
 
     for(i = 0; i < SO_ALTEZZA; i++) {

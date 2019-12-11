@@ -61,7 +61,12 @@
                     strerror(errno));\
                     errno = 0;}
 
-typedef union {
+typedef struct _timespec {
+    time_t tv_sec; /* seconds */
+    long tv_nsec; /* nanoseconds */
+} timespec;
+
+typedef union _semun{
     int val; /* Value for SETVAL */
     struct semid_ds *buf; /* Buffer for IPC_STAT, IPC_SET */
     unsigned short *array; /* Array for GETALL, SETALL */
