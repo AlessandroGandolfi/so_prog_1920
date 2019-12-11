@@ -1,9 +1,12 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <signal.h>
+/* #include <signal.h> */
+#include <sys/msg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ipc.h>
@@ -31,7 +34,7 @@
 #define SO_N_MOVES 20
 #define SO_MIN_HOLD_NSEC 100000000
 
-#define DIST_PED_GIOC 8 /* < 10 */
+#define DIST_PED_GIOC 60 /* < 10 */
 #else
 #ifdef HARD
 #define SO_NUM_G 4
@@ -60,11 +63,6 @@
                     errno,\
                     strerror(errno));\
                     errno = 0;}
-
-typedef struct _timespec {
-    time_t tv_sec; /* seconds */
-    long tv_nsec; /* nanoseconds */
-} timespec;
 
 typedef union _semun{
     int val; /* Value for SETVAL */
@@ -99,3 +97,35 @@ typedef struct _giocatore {
     int mc_id_squadra;
     int tot_mosse_rim;
 } gioc;
+
+/* messaggio usato per segnalare una bandierina presa */
+typedef struct _msg_band {
+    long mtype;
+    coord coord_band_presa;
+} msg_band_presa;
+
+/* messaggio usato per segnalare bisogno nuovo obiettivo */
+typedef struct _msg_nuovo_obiettivo {
+    long mtype;
+    long pid_ped;
+    int ind_mc_ped;
+} msg_new_obj;
+
+/* messaggio usato per segnalare fine piazzamento */
+typedef struct _msg_piaz {
+    long mtype;
+    int fine_piaz;
+} msg_fine_piaz;
+
+int calcDist(int x1, int x2, int y1, int y2) {
+    int distanza, dif_riga, dif_col, dif_min, dif_max;
+
+    dif_riga = abs(y1 - y2);
+    dif_col = abs(x1 - x2);
+    
+    dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
+    dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
+    distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
+
+    return distanza;
+}

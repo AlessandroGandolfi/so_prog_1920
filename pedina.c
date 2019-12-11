@@ -24,7 +24,7 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 int main(int argc, char **argv) {
     int mc_id_scac;
     int *mc_sem_scac;
-    timespec arg_sleep;
+    struct timespec arg_sleep;
 
     /* setup scacchiera */
     mc_id_scac = atoi(argv[0]);

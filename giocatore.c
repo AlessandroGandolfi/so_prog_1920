@@ -11,7 +11,7 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 */
 #include "./config.h"
 
-void initPedine(char *, int, char *, char *);
+void initPedine(char *, int, char *);
 void piazzaPedina(int);
 int checkPosPedine(int, int);
 int calcDist(int, int, int, int);
@@ -20,7 +20,7 @@ int calcDist(int, int, int, int);
 pid_t pids_pedine[SO_NUM_P];
 ped *mc_ped_squadra;
 int *mc_sem_scac;
-int mc_id_squadra;
+int mc_id_squadra, msg_id_coda;
 
 /* 
 parametri a giocatore 
@@ -41,8 +41,12 @@ int main(int argc, char **argv) {
     mc_sem_scac = (int *) shmat(atoi(argv[2]), NULL, 0);
     TEST_ERROR;
     
+    mc_id_squadra = atoi(argv[3]);
+
     /* creazione pedine, valorizzazione pids_pedine */
-    initPedine(argv[0], atoi(argv[1]), argv[2], argv[3]);
+    initPedine(argv[0], atoi(argv[1]), argv[2]);
+
+    /* initObiettivi() con attesa di messaggi */
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
@@ -57,17 +61,18 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
 }
 
-void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_squadra) {
+void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
     int i;
     char *param_pedine[4];
     char tmp_params[2][sizeof(char *)];
     struct sembuf sops;
+    msg_fine_piaz avviso_master;
 
     /* 
     parametri a pedine
-        - id mc scacchiera, array id set semafori
-        - id mc squadra, array pedine
-        - indice identificativo pedina dell'array in mc squadra
+    - id mc scacchiera, array id set semafori
+    - id mc squadra, array pedine
+    - indice identificativo pedina dell'array in mc squadra
     */
     param_pedine[0] = mc_id_scac;
     sprintf(tmp_params[0], "%d", mc_id_squadra);
@@ -90,14 +95,20 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac, char *mc_id_s
 
         piazzaPedina(i);
 
-        /* 
-        rilascia token successivo
-        si potrebbe usare per una wait for zero?
-        */
-        sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
-        sops.sem_op = 1;
-        sops.sem_flg = 0;
-        semop(atoi(token_gioc), &sops, 1);
+        /* prima niente else, codice al suo interno qua */
+
+        /* ultimo manda a messaggio a master per piazzare le bandiere */
+        if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
+            if(DEBUG) printf("gioc %d ped %d msg fine piazzam\n", pos_token, i);
+        	avviso_master.mtype = (long) getpid();
+            avviso_master.fine_piaz = 1;
+            msgsnd(msg_id_coda, &avviso_master, sizeof(msg_fine_piaz) - sizeof(long), 0);
+        } else {
+            sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
+            sops.sem_op = 1;
+            sops.sem_flg = 0;
+            semop(atoi(token_gioc), &sops, 1);
+        }
 
         /* creazione proc pedine */
         pids_pedine[i] = fork();
@@ -149,17 +160,4 @@ int checkPosPedine(int riga, int colonna) {
     }
 
     return check;
-}
-
-int calcDist(int x1, int x2, int y1, int y2) {
-    int distanza, dif_riga, dif_col, dif_min, dif_max;
-
-    dif_riga = abs(y1 - y2);
-    dif_col = abs(x1 - x2);
-    
-    dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
-    dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
-    distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
-
-    return distanza;
 }
