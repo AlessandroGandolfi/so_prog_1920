@@ -59,9 +59,12 @@ int main(int argc, char **argv) {
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori();
 
+    if(DEBUG) printf("master: attesa msg ultimo piazzam\n");
     /* master aspetta che i 4 giocatori abbiano piazzato le pedine */
     msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
+
+    if(DEBUG) printf("master: msg ricevuto\n");
 
     /* creazione bandiere, valorizzazione array bandiere */
     initBandiere();
@@ -245,11 +248,10 @@ void initBandiere() {
     int i, riga, colonna, sem_val;
     msg_band msg_new_band;
 
-#ifdef EASY
-    num_band = SO_FLAG_MAX;
-#else
-    num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN)) + SO_FLAG_MIN;
-#endif
+    if(SO_FLAG_MAX == SO_FLAG_MIN)
+        num_band = SO_FLAG_MAX;
+    else
+        num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN)) + SO_FLAG_MIN;
 
     if(DEBUG) printf("num bandiere %d\n", num_band);
 

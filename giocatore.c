@@ -103,13 +103,11 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
         semop(atoi(token_gioc), &sops, 1);
 
         if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
-            if(DEBUG) printf("gioc %d msg fine piazzam\n", pos_token);
         	avviso_master.mtype = (long) getpid();
             avviso_master.fine_piaz = 1;
-            printf("aaaaaaaaaa\n");
             msgsnd(msg_id_coda, &avviso_master, sizeof(msg_fine_piaz) - sizeof(long), 0);
             TEST_ERROR;
-            printf("dfghjk\n");
+            if(DEBUG) printf("gioc %d: ult ped %d, msg fine piazzam\n", pos_token, i);
         }
 
         /* creazione proc pedine */
