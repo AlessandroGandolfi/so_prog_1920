@@ -34,7 +34,7 @@
 #define SO_N_MOVES 20
 #define SO_MIN_HOLD_NSEC 100000000
 
-#define DIST_PED_GIOC 60 /* < 10 */
+#define DIST_PED_GIOC 8 /* < 10 */
 #else
 #ifdef HARD
 #define SO_NUM_G 4

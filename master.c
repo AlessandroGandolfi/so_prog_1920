@@ -60,8 +60,7 @@ int main(int argc, char **argv) {
     initGiocatori();
 
     /* master aspetta che i 4 giocatori abbiano piazzato le pedine */
-    for(i = 0; i < SO_NUM_G; i++)
-        msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[i].pid, 0);
+    msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 
     /* creazione bandiere, valorizzazione array bandiere */
@@ -251,6 +250,8 @@ void initBandiere() {
 #else
     num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN)) + SO_FLAG_MIN;
 #endif
+
+    if(DEBUG) printf("num bandiere %d\n", num_band);
 
     mc_id_band = shmget(IPC_PRIVATE, num_band * sizeof(band), S_IRUSR | S_IWUSR);
     TEST_ERROR;
