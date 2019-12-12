@@ -9,7 +9,7 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
         se nemico puó far continuare avanzamento delle pedine
         se propria pedina assegna nuovo obiettivo
 */
-#include ".\config.h"
+#include "config.h"
 
 void initPedine(char *, int, char *);
 void piazzaPedina(int);

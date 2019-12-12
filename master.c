@@ -21,7 +21,7 @@ gioc
         - avvio movimenti
 */
 
-#include ".\config.h"
+#include "config.h"
 
 void initGiocatori();
 void initScacchiera();
