@@ -121,7 +121,7 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
                 /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
                 sprintf(tmp_params[1], "%d", i);
                 param_pedine[2] = tmp_params[1];
-                execve(".\pedina", param_pedine, NULL);
+                execve("pedina", param_pedine, NULL);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
         }
