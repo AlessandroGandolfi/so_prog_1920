@@ -114,9 +114,20 @@ void somebodyTookMaShmget() {
         TEST_ERROR;
     }
     
+    shmdt(mc_bandiere);
+    TEST_ERROR;
+	shmctl(mc_id_band, IPC_RMID, NULL);
+    TEST_ERROR;
+
     shmdt(mc_sem_scac);
     TEST_ERROR;
 	shmctl(mc_id_scac, IPC_RMID, NULL);
+    TEST_ERROR;
+
+    semctl(token_gioc, 0, IPC_RMID);
+    TEST_ERROR;
+
+    msgctl(msg_id_coda, IPC_RMID, NULL);
     TEST_ERROR;
 }
 
