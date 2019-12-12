@@ -107,7 +107,7 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
             avviso_master.fine_piaz = 1;
             msgsnd(msg_id_coda, &avviso_master, sizeof(msg_fine_piaz) - sizeof(long), 0);
             TEST_ERROR;
-            if(DEBUG) printf("gioc %d (%ld): ult ped %d, msg fine piazzam\n", pos_token, (long) getpid(), i);
+            if(DEBUG) printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", pos_token, (long) getpid(), i, msg_id_coda);
         }
 
         /* creazione proc pedine */
