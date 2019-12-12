@@ -106,8 +106,10 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
             if(DEBUG) printf("gioc %d ped %d msg fine piazzam\n", pos_token, i);
         	avviso_master.mtype = (long) getpid();
             avviso_master.fine_piaz = 1;
+            printf("aaaaaaaaaa\n");
             msgsnd(msg_id_coda, &avviso_master, sizeof(msg_fine_piaz) - sizeof(long), 0);
             TEST_ERROR;
+            printf("dfghjk\n");
         }
 
         /* creazione proc pedine */

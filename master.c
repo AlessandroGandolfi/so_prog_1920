@@ -181,7 +181,7 @@ void stampaScacchiera() {
 
 void initGiocatori() {
     int i;
-    char *param_giocatori[5];
+    char *param_giocatori[6];
     char tmp_params[5][sizeof(char *)];
     union semun sem_arg;
     unsigned short val_array[SO_BASE];
@@ -210,7 +210,7 @@ void initGiocatori() {
     param_giocatori[2] = tmp_params[2];
     sprintf(tmp_params[4], "%d", msg_id_coda);
     param_giocatori[4] = tmp_params[4];
-    param_giocatori[5] = (char *) 0;
+    param_giocatori[5] = NULL;
 
 
     for(i = 0; i < SO_NUM_G; i++) {
