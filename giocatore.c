@@ -44,6 +44,8 @@ int main(int argc, char **argv) {
     
     mc_id_squadra = atoi(argv[3]);
 
+    msg_id_coda = atoi(argv[4]);
+
     /* creazione pedine, valorizzazione pids_pedine */
     initPedine(argv[0], atoi(argv[1]), argv[2]);
 
