@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     initGiocatori();
 
     /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
-    if(DEBUG) printf("master: attesa msg ultimo piazzam da %ld\n", (long) giocatori[SO_NUM_G - 1].pid);
+    if(DEBUG) printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
     msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 
@@ -242,6 +242,8 @@ void initGiocatori() {
                 exit(EXIT_FAILURE);
         }
     }
+
+    if(DEBUG) printf("master: fine creazione giocatori\n");
 }
 
 void initBandiere() {
