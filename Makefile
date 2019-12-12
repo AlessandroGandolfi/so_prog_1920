@@ -15,4 +15,4 @@ pedina: pedina.c config.h Makefile
 	gcc $(CFLAGS) pedina.c -o pedina -D$(MODE)
 
 run: all
-	./master
+	.\master

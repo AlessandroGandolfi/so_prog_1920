@@ -21,7 +21,7 @@ gioc
         - avvio movimenti
 */
 
-#include "./config.h"
+#include ".\config.h"
 
 void initGiocatori();
 void initScacchiera();
@@ -235,7 +235,7 @@ void initGiocatori() {
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
             case 0:
-                execve("./giocatore", param_giocatori, NULL);
+                execve(".\giocatore", param_giocatori, NULL);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
         }

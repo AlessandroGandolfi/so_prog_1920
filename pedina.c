@@ -19,7 +19,7 @@ se la pedina finisce su una bandierina non obiettivo si ferma su di essa se
 se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 */
 
-#include "./config.h"
+#include ".\config.h"
 
 int main(int argc, char **argv) {
     int mc_id_scac;
