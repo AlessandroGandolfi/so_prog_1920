@@ -210,7 +210,7 @@ void initGiocatori() {
     param_giocatori[2] = tmp_params[2];
     sprintf(tmp_params[4], "%d", msg_id_coda);
     param_giocatori[4] = tmp_params[4];
-    param_giocatori[5] = NULL;
+    param_giocatori[5] = (char *) 0;
 
 
     for(i = 0; i < SO_NUM_G; i++) {
