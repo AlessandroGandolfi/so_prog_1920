@@ -59,8 +59,8 @@ int main(int argc, char **argv) {
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori();
 
-    if(DEBUG) printf("master: attesa msg ultimo piazzam\n");
-    /* master aspetta che i 4 giocatori abbiano piazzato le pedine */
+    /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
+    if(DEBUG) printf("master: attesa msg ultimo piazzam da %ld\n", (long) giocatori[SO_NUM_G - 1].pid);
     msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 

@@ -93,7 +93,7 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
         sops.sem_flg = 0;
         semop(atoi(token_gioc), &sops, 1);
 
-        if(DEBUG) printf("gioc: %d\tped: %d\n", pos_token, i);
+        if(DEBUG) printf("gioc %d: ped: %d piazzata\n", pos_token, i);
 
         piazzaPedina(i);
 
@@ -107,7 +107,7 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
             avviso_master.fine_piaz = 1;
             msgsnd(msg_id_coda, &avviso_master, sizeof(msg_fine_piaz) - sizeof(long), 0);
             TEST_ERROR;
-            if(DEBUG) printf("gioc %d: ult ped %d, msg fine piazzam\n", pos_token, i);
+            if(DEBUG) printf("gioc %d (%ld): ult ped %d, msg fine piazzam\n", pos_token, getpid(), i);
         }
 
         /* creazione proc pedine */
