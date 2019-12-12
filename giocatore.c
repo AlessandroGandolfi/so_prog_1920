@@ -14,7 +14,7 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 void initPedine(char *, int, char *);
 void piazzaPedina(int);
 int checkPosPedine(int, int);
-int calcDist(int, int, int, int);
+void initObiettivi(int);
 
 /* globali */
 pid_t pids_pedine[SO_NUM_P];
@@ -26,8 +26,9 @@ int mc_id_squadra, msg_id_coda;
 parametri a giocatore 
 - id token per posizionamento pedine
 - indice proprio token
-- id mc scacchiera
-- id mc squadra
+- id mc scacchiera, array id set semafori
+- id mc squadra, array pedine
+- id coda msg
 */
 int main(int argc, char **argv) {
     int status, i;
@@ -46,7 +47,8 @@ int main(int argc, char **argv) {
     /* creazione pedine, valorizzazione pids_pedine */
     initPedine(argv[0], atoi(argv[1]), argv[2]);
 
-    /* initObiettivi() con attesa di messaggi */
+    /* assegnazione obiettivi */
+    initObiettivi(atoi(argv[4]));
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
@@ -95,19 +97,17 @@ void initPedine(char *token_gioc, int pos_token, char *mc_id_scac) {
 
         piazzaPedina(i);
 
-        /* prima niente else, codice al suo interno qua */
+        sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
+        sops.sem_op = 1;
+        sops.sem_flg = 0;
+        semop(atoi(token_gioc), &sops, 1);
 
-        /* ultimo manda a messaggio a master per piazzare le bandiere */
-        if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
+        if(i == (SO_NUM_P - 1)) { 
             if(DEBUG) printf("gioc %d ped %d msg fine piazzam\n", pos_token, i);
         	avviso_master.mtype = (long) getpid();
             avviso_master.fine_piaz = 1;
             msgsnd(msg_id_coda, &avviso_master, sizeof(msg_fine_piaz) - sizeof(long), 0);
-        } else {
-            sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
-            sops.sem_op = 1;
-            sops.sem_flg = 0;
-            semop(atoi(token_gioc), &sops, 1);
+            TEST_ERROR;
         }
 
         /* creazione proc pedine */
@@ -160,4 +160,11 @@ int checkPosPedine(int riga, int colonna) {
     }
 
     return check;
+}
+
+void initObiettivi(int msg_id_coda) {
+    msg_band msg;
+
+    msgrcv(msg_id_coda, &msg, sizeof(msg_band) - sizeof(long), (long) getppid(), 0);
+    TEST_ERROR;
 }

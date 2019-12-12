@@ -6,10 +6,10 @@
 #include <errno.h>
 #include <string.h>
 /* #include <signal.h> */
-#include <sys/msg.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ipc.h>
+#include <sys/msg.h>
 #include <sys/shm.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -52,6 +52,8 @@
 #endif
 #endif
 
+#define DIST_BAND 6
+
 #define DEBUG 1
 #define ENABLE_COLORS 1
 
@@ -64,14 +66,16 @@
                     strerror(errno));\
                     errno = 0;}
 
-typedef union _semun{
+#ifndef __APPLE__
+typedef union semun {
     int val; /* Value for SETVAL */
     struct semid_ds *buf; /* Buffer for IPC_STAT, IPC_SET */
     unsigned short *array; /* Array for GETALL, SETALL */
 #if (defined (LINUX) || defined (__linux__))
     struct seminfo *__buf; /* Buffer for IPC_INFO (Linux-specific) */
 #endif
-} semun;
+};
+#endif
 
 typedef struct _coordinate {
     int x;
@@ -98,11 +102,11 @@ typedef struct _giocatore {
     int tot_mosse_rim;
 } gioc;
 
-/* messaggio usato per segnalare una bandierina presa */
+/* messaggio usato per segnalare una bandierina presa e id mc bandiere */
 typedef struct _msg_band {
     long mtype;
-    coord coord_band_presa;
-} msg_band_presa;
+    int ind;
+} msg_band;
 
 /* messaggio usato per segnalare bisogno nuovo obiettivo */
 typedef struct _msg_nuovo_obiettivo {
