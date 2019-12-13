@@ -9,7 +9,7 @@ gioc
 - giocatori si mettono in attesa di messaggio con id di bandiere in mc X
     - master riceve via libera da giocatori per piazzare bandiere
     - tutti token a 1 X
-    - allocazione array bandiere X
+    - allocazione array bandiere (X) e calcolo punteggio singola bandiera
     - invio SO_NUM_G msg con id mc bandiere a giocatori X
 - giocatori ricezione msg da master
 - msg a ogni pedina assegnazione percorso a pedine
@@ -222,7 +222,6 @@ void initGiocatori() {
     - id mc squadra, array pedine
     - id coda msg
     */
-
     sprintf(tmp_params[0], "%d", token_gioc);
     param_giocatori[0] = tmp_params[0];
     sprintf(tmp_params[2], "%d", mc_id_scac);
@@ -264,11 +263,12 @@ void initGiocatori() {
 }
 
 void initBandiere() {
-    int i, riga, colonna, sem_val;
+    int i, riga, colonna, sem_val, tot_punti_rim;
     msg_band msg_new_band;
     semun sem_arg;
     unsigned short val_token[SO_NUM_G];
 
+    tot_punti_rim = SO_ROUND_SCORE;
     num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN + 1)) + SO_FLAG_MIN;
 
     if(DEBUG) printf("num bandiere %d\n", num_band);
@@ -303,6 +303,12 @@ void initBandiere() {
         /* valorizzazione mc bandiere */
         mc_bandiere[i].pos_band.y = riga;
         mc_bandiere[i].pos_band.x = colonna;
+        mc_bandiere[i].presa = 0;
+        if(i != (num_band - 1))
+            mc_bandiere[i].punti = rand() % ((int) tot_punti_rim / 2);
+        else
+            mc_bandiere[i].punti = tot_punti_rim;
+        tot_punti_rim -= mc_bandiere[i].punti;
     }
 
     if(DEBUG) testSemToken();
