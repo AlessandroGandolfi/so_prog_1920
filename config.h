@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-/* #include <signal.h> */
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ipc.h>
@@ -54,6 +54,11 @@
 
 #define DIST_BAND 6
 
+/* 
+flag opzionali 
+- DEBUG per stampare piú informazioni
+- ENABLE_COLORS per abilitare o meno i colori in console
+*/
 #define DEBUG 1
 #define ENABLE_COLORS 1
 
@@ -67,14 +72,14 @@
                     errno = 0;}
 
 #ifndef __APPLE__
-typedef union semun {
+typedef union {
     int val; /* Value for SETVAL */
     struct semid_ds *buf; /* Buffer for IPC_STAT, IPC_SET */
     unsigned short *array; /* Array for GETALL, SETALL */
 #if (defined (LINUX) || defined (__linux__))
     struct seminfo *__buf; /* Buffer for IPC_INFO (Linux-specific) */
 #endif
-};
+} semun;
 #endif
 
 typedef struct _coordinate {

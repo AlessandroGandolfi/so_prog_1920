@@ -4,13 +4,13 @@ gioc
     master
         pedine
 
-        - pedina bloccata su msgrcv da giocatore
-- ultimo giocatore a piazzare invia msg a master
-- giocatori si mettono in attesa di messaggio con id di bandiere in mc
+        - pedina bloccata su msgrcv da giocatore 
+- ultimo giocatore a piazzare invia msg a master X
+- giocatori si mettono in attesa di messaggio con id di bandiere in mc X
     - master riceve via libera da giocatori per piazzare bandiere
-    - tutti token a 1
-    - allocazione array bandiere
-    - invio SO_NUM_G msg con id mc bandiere a giocatori
+    - tutti token a 1 X
+    - allocazione array bandiere X
+    - invio SO_NUM_G msg con id mc bandiere a giocatori X
 - giocatori ricezione msg da master
 - msg a ogni pedina assegnazione percorso a pedine
         - pedina riceve messaggio (ha obiettivo)
@@ -29,6 +29,10 @@ void somebodyTookMaShmget();
 void stampaScacchiera();
 void initBandiere();
 int checkPosBandiere(int, int);
+
+#if DEBUG
+void testSemToken();
+#endif
 
 /* globali */
 gioc giocatori[SO_NUM_G];
@@ -86,7 +90,7 @@ int main(int argc, char **argv) {
 
 void initScacchiera() {
     int i;
-    union semun sem_arg;
+    semun sem_arg;
     unsigned short val_array[SO_BASE];
     
     for(i = 0; i < SO_BASE; i++) val_array[i] = 1;
@@ -136,11 +140,14 @@ void stampaScacchiera() {
     char scacchiera[SO_ALTEZZA][SO_BASE];
     ped *mc_ped_squadra;
     
+    /* scacchiera tutta a 0, caratteri sovrascritti da semafori e pedine */
     memset(scacchiera, '0', SO_ALTEZZA * SO_BASE * sizeof(char));
 
+    /* bandiere */
     for(i = 0; i < num_band; i++)
         scacchiera[mc_bandiere[i].pos_band.y][mc_bandiere[i].pos_band.x] = 'B';
 
+    /* pedine */
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].tot_mosse_rim = 0;
         mc_ped_squadra = (ped *) shmat(giocatori[i].mc_id_squadra, NULL, 0);
@@ -155,8 +162,7 @@ void stampaScacchiera() {
         TEST_ERROR;
     }
 
-    /* se array band ne ha di non prese, le metto in matrice */
-
+    /* stampa matrice caratteri */
     for(i = 0; i < SO_ALTEZZA; i++) {
         for(j = 0; j < SO_BASE; j++) {
             if(ENABLE_COLORS) {
@@ -196,7 +202,7 @@ void initGiocatori() {
     int i;
     char *param_giocatori[6];
     char tmp_params[5][sizeof(char *)];
-    union semun sem_arg;
+    semun sem_arg;
     unsigned short val_array[SO_BASE];
     
     /* init token posizionamento pedine */
@@ -260,25 +266,30 @@ void initGiocatori() {
 void initBandiere() {
     int i, riga, colonna, sem_val;
     msg_band msg_new_band;
+    semun sem_arg;
+    unsigned short val_token[SO_NUM_G];
 
-    if(SO_FLAG_MAX == SO_FLAG_MIN)
-        num_band = SO_FLAG_MAX;
-    else
-        num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN)) + SO_FLAG_MIN;
+    num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN + 1)) + SO_FLAG_MIN;
 
     if(DEBUG) printf("num bandiere %d\n", num_band);
 
     mc_id_band = shmget(IPC_PRIVATE, num_band * sizeof(band), S_IRUSR | S_IWUSR);
     TEST_ERROR;
 
+    /* creazione array bandiere in mc */
     mc_bandiere = (band *) shmat(mc_id_band, NULL, 0);
     TEST_ERROR;
 
+    /* bandiere ancora non piazzate con coord -1, -1 */
     for(i = 0; i < num_band; i++) {
         mc_bandiere[i].pos_band.x = -1;
         mc_bandiere[i].pos_band.y = -1;
     }
 
+    /* 
+    per ogni bandiera randomizzo i valori fino a quando non trovo 
+    una cella libera senza altre bandiere "troppo vicine" 
+    */
     for(i = 0; i < num_band; i++) {
         do {
             do {
@@ -287,11 +298,24 @@ void initBandiere() {
             } while(checkPosBandiere(riga, colonna));
 
             sem_val = semctl(mc_sem_scac[riga], colonna, GETVAL, NULL);
-        } while(sem_val == 0);
+        } while(!sem_val);
 
+        /* valorizzazione mc bandiere */
         mc_bandiere[i].pos_band.y = riga;
         mc_bandiere[i].pos_band.x = colonna;
     }
+
+    if(DEBUG) testSemToken();
+
+    /* 
+    setto token a 1 per pedine in wait for 0 successivamente
+    da decrementare a inizio round per inizio movimenti
+    */
+    for(i = 0; i < SO_NUM_G; i++) val_token[i] = 1;
+    sem_arg.array = val_token;
+    semctl(token_gioc, 0, SETALL, sem_arg);
+
+    if(DEBUG) testSemToken();
 
     msg_new_band.ind = mc_id_band;
     msg_new_band.mtype = getpid();
@@ -308,6 +332,10 @@ int checkPosBandiere(int riga, int colonna) {
     i = 0;
     check = 0;
 
+    /* 
+    ciclo su array fino a quando non trovo band con coord -1, -1 (da lí in poi non ancora piazzate) 
+    o se ne trovo una giá piazzata troppo vicina 
+    */
     while(mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1 && i < num_band && check == 0) {
         if(calcDist(colonna, mc_bandiere[i].pos_band.x, riga, mc_bandiere[i].pos_band.y) < DIST_BAND) check++;
         i++;
@@ -315,3 +343,18 @@ int checkPosBandiere(int riga, int colonna) {
 
     return check;
 }
+
+#if DEBUG
+void testSemToken() {
+    unsigned short val_array[SO_BASE];
+    int i;
+
+    sleep(1);
+
+    semctl(token_gioc, 0, GETALL, val_array);
+
+    for(i = 0; i < SO_NUM_G; i++) {
+        printf("master: token gioc %d settato a %hu\n", i, val_array[i]);
+    }
+}
+#endif
