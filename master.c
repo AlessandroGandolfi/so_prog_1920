@@ -7,24 +7,38 @@ gioc
         - pedina bloccata su msgrcv da giocatore 
 - ultimo giocatore a piazzare invia msg a master X
 - giocatori si mettono in attesa di messaggio con id di bandiere in mc X
-    - master riceve via libera da giocatori per piazzare bandiere
+    - master riceve via libera da giocatori per piazzare bandiere X
     - tutti token a 1 X
-    - allocazione array bandiere (X) e calcolo punteggio singola bandiera
+    - allocazione array bandiere e calcolo punteggio singola bandiera X
     - invio SO_NUM_G msg con id mc bandiere a giocatori X
-- giocatori ricezione msg da master
-- msg a ogni pedina assegnazione percorso a pedine
+- giocatori ricezione msg da master X
+- msg a ogni pedina assegnazione percorso a pedine (ciclo su pids_pedine)
         - pedina riceve messaggio (ha obiettivo)
         - calcolo percorso
         - pedine wait for 0 su token squadra ad avvio
 - msg fine assegnazione obiettivi a master
     - a messaggio di ultimo gioc per obiettivi setto tutti token a 0
         - avvio movimenti
+-------------------------------------------------------------------------
+posso settare percorso a pedina una per volta
+giocatore:
+    for pedina
+        assegna obiettivo
+        manda messaggio a pedina singola per obiettivo
+        attesa messaggio da pedina per calcolo percorso
+    manda messaggio a master fine calcolo percorso
+pedina: 
+    attesa ricezione messaggio obiettivo
+    calcolo percorso
+    invio messaggio giocatore per fine percorso
+    attesa 0
 */
 
 #include "config.h"
 
+void initRisorse();
 void initGiocatori();
-void initScacchiera();
+void initSemScacchiera();
 void somebodyTookMaShmget();
 void stampaScacchiera();
 void initBandiere();
@@ -38,7 +52,8 @@ void testSemToken();
 gioc giocatori[SO_NUM_G];
 int *mc_sem_scac;
 band *mc_bandiere;
-int token_gioc, mc_id_scac, mc_id_band, msg_id_coda, num_band;
+char **mc_char_scac;
+int token_gioc, mc_id_sem, mc_id_scac, mc_id_band, msg_id_coda, num_band;
 
 int main(int argc, char **argv) {
     int status, i;
@@ -46,19 +61,9 @@ int main(int argc, char **argv) {
 
     srand(time(NULL) + getpid());
 
-    /* creazione coda msg */
-    msg_id_coda = msgget(IPC_PRIVATE, IPC_CREAT | IPC_EXCL | 0600);
-    TEST_ERROR;
+    initRisorse();
 
-    /* creazione mc scacchiera */
-    mc_id_scac = shmget(IPC_PRIVATE, sizeof(int) * SO_ALTEZZA, S_IRUSR | S_IWUSR);
-    TEST_ERROR;
-
-    /* collegamento a mc scac */
-    mc_sem_scac = (int *) shmat(mc_id_scac, NULL, 0);
-    TEST_ERROR;
-
-    initScacchiera();
+    initSemScacchiera();
 
     /* creazione giocatori, valorizzazione pids_giocatori */
     initGiocatori();
@@ -68,7 +73,7 @@ int main(int argc, char **argv) {
     msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 
-    if(DEBUG) printf("master: msg ricevuto\n");
+    if(DEBUG) printf("master: val msg ricevuto %d\n", msg.fine_piaz);
 
     /* creazione bandiere, valorizzazione array bandiere */
     initBandiere();
@@ -88,11 +93,12 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void initScacchiera() {
+void initSemScacchiera() {
     int i;
     semun sem_arg;
     unsigned short val_array[SO_BASE];
     
+    /* memset cambia 1 a 127 per cast da unsigned short a int */ 
     for(i = 0; i < SO_BASE; i++) val_array[i] = 1;
     sem_arg.array = val_array;
 
@@ -125,7 +131,7 @@ void somebodyTookMaShmget() {
 
     shmdt(mc_sem_scac);
     TEST_ERROR;
-	shmctl(mc_id_scac, IPC_RMID, NULL);
+	shmctl(mc_id_sem, IPC_RMID, NULL);
     TEST_ERROR;
 
     semctl(token_gioc, 0, IPC_RMID);
@@ -139,13 +145,6 @@ void stampaScacchiera() {
     int i, j;
     char scacchiera[SO_ALTEZZA][SO_BASE];
     ped *mc_ped_squadra;
-    
-    /* scacchiera tutta a 0, caratteri sovrascritti da semafori e pedine */
-    memset(scacchiera, '0', SO_ALTEZZA * SO_BASE * sizeof(char));
-
-    /* bandiere */
-    for(i = 0; i < num_band; i++)
-        scacchiera[mc_bandiere[i].pos_band.y][mc_bandiere[i].pos_band.x] = 'B';
 
     /* pedine */
     for(i = 0; i < SO_NUM_G; i++) {
@@ -216,23 +215,27 @@ void initGiocatori() {
 
     /* 
     parametri a giocatore 
-    - id token per posizionamento pedine
-    - indice proprio token
-    - id mc scacchiera, array id set semafori
+    - id token
+    - indice token squadra
+    - id mc sem scacchiera, array id set semafori
     - id mc squadra, array pedine
+    - id mc char scacchiera
     - id coda msg
     */
     sprintf(tmp_params[0], "%d", token_gioc);
     param_giocatori[0] = tmp_params[0];
-    sprintf(tmp_params[2], "%d", mc_id_scac);
+    sprintf(tmp_params[2], "%d", mc_id_sem);
     param_giocatori[2] = tmp_params[2];
     sprintf(tmp_params[4], "%d", msg_id_coda);
     param_giocatori[4] = tmp_params[4];
-    param_giocatori[5] = NULL;
+    sprintf(tmp_params[5], "%d", mc_id_scac);
+    param_giocatori[5] = tmp_params[5];
+    param_giocatori[6] = NULL;
 
 
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].punteggio = 0;
+
         /* mc di squadra, array di pedine, visibile solo alla squadra */
         giocatori[i].mc_id_squadra = shmget(IPC_PRIVATE, sizeof(ped) * SO_NUM_P, S_IRUSR | S_IWUSR);
         TEST_ERROR;
@@ -309,6 +312,9 @@ void initBandiere() {
         else
             mc_bandiere[i].punti = tot_punti_rim;
         tot_punti_rim -= mc_bandiere[i].punti;
+
+        /* piazzamento bandiere su scacchiera */
+        mc_char_scac[riga][colonna] = 'B';
     }
 
     if(DEBUG) testSemToken();
@@ -324,7 +330,7 @@ void initBandiere() {
     if(DEBUG) testSemToken();
 
     msg_new_band.ind = mc_id_band;
-    msg_new_band.mtype = getpid();
+    msg_new_band.mtype = (long) getpid();
     /* manda un messaggio per giocatore */
     for(i = 0; i < SO_NUM_G; i++) {
         msgsnd(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), 0);
@@ -348,6 +354,26 @@ int checkPosBandiere(int riga, int colonna) {
     }
 
     return check;
+}
+
+void initRisorse() {
+    /* creazione coda msg */
+    msg_id_coda = msgget(IPC_PRIVATE, IPC_CREAT | IPC_EXCL | 0600);
+    TEST_ERROR;
+
+    /* creazione e collegamento a mc scacchiera */ 
+    mc_id_scac = shmget(IPC_PRIVATE, sizeof(char) * SO_ALTEZZA * SO_BASE, S_IRUSR | S_IWUSR);
+    TEST_ERROR;
+    mc_char_scac = (char **) shmat(mc_id_scac, NULL, 0);
+    TEST_ERROR
+
+    /* creazione e collegamento a mc sem scacchiera */
+    mc_id_sem = shmget(IPC_PRIVATE, sizeof(int) * SO_ALTEZZA, S_IRUSR | S_IWUSR);
+    TEST_ERROR;
+    mc_sem_scac = (int *) shmat(mc_id_sem, NULL, 0);
+    TEST_ERROR;
+    /* scacchiera tutta a 0, caratteri sovrascritti da semafori e pedine in futuro */
+    memset(mc_sem_scac, '0', SO_ALTEZZA * SO_BASE * sizeof(char));
 }
 
 #if DEBUG

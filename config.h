@@ -52,7 +52,7 @@
 #endif
 #endif
 
-#define DIST_BAND 6
+#define DIST_BAND 8 /* < 10 */
 
 /* 
 flag opzionali 

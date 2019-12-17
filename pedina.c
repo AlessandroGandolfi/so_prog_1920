@@ -22,13 +22,14 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 #include "config.h"
 
 int main(int argc, char **argv) {
-    int mc_id_scac;
+    int mc_id_sem;
     int *mc_sem_scac;
     struct timespec arg_sleep;
 
+    mc_id_sem = atoi(argv[2]);
+    
     /* setup scacchiera */
-    mc_id_scac = atoi(argv[0]);
-    mc_sem_scac = (int *) shmat(mc_id_scac, NULL, SHM_RDONLY);
+    mc_sem_scac = (int *) shmat(mc_id_sem, NULL, SHM_RDONLY);
     TEST_ERROR;
     
     arg_sleep.tv_sec = 0;
