@@ -16,41 +16,36 @@
 #include <sys/sem.h>
 #include <math.h>
 
-#ifndef EASY
-#ifndef HARD
-#define EASY /* default facile */
-#endif
-#endif
+#define CHECK_MODE(mode) \
+if(mode != "easy" && mode != "hard") { \
+    printf("Modalitá accettate: easy, hard\n"); \
+    exit(0); \
+} \
 
-#ifdef EASY
-#define SO_NUM_G 2
-#define SO_NUM_P 10
-#define SO_MAX_TIME 3
-#define SO_BASE 60
-#define SO_ALTEZZA 20
-#define SO_FLAG_MIN 5
-#define SO_FLAG_MAX 5
-#define SO_ROUND_SCORE 10
-#define SO_N_MOVES 20
-#define SO_MIN_HOLD_NSEC 100000000
+extern const int SO_NUM_G;
+extern const int SO_NUM_P;
+extern const int SO_MAX_TIME;
+extern const int SO_BASE;
+extern const int SO_ALTEZZA;
+extern const int SO_FLAG_MIN;
+extern const int SO_FLAG_MAX;
+extern const int SO_ROUND_SCORE;
+extern const int SO_N_MOVES;
+extern const int SO_MIN_HOLD_NSEC;
+extern const int DIST_PED_GIOC;
 
-#define DIST_PED_GIOC 8 /* < 10 */
-#else
-#ifdef HARD
-#define SO_NUM_G 4
-#define SO_NUM_P 400
-#define SO_MAX_TIME 1
-#define SO_BASE 120
-#define SO_ALTEZZA 40
-#define SO_FLAG_MIN 5
-#define SO_FLAG_MAX 40
-#define SO_ROUND_SCORE 200
-#define SO_N_MOVES 200
-#define SO_MIN_HOLD_NSEC 100000000
-
-#define DIST_PED_GIOC 2 /* < 3 */
-#endif
-#endif
+#define CONFIG_VALUES(mode) \
+const int SO_NUM_G = (mode == "easy") ? 2 : 4; \
+const int SO_NUM_P = (mode == "easy") ? 10 : 400; \
+const int SO_MAX_TIME = (mode == "easy") ? 3 : 1; \
+const int SO_BASE = (mode == "easy") ? 60 : 120; \
+const int SO_ALTEZZA = (mode == "easy") ? 20 : 40; \
+const int SO_FLAG_MIN = (mode == "easy") ? 5 : 5; \
+const int SO_FLAG_MAX = (mode == "easy") ? 5 : 40; \
+const int SO_ROUND_SCORE = (mode == "easy") ? 10 : 200; \
+const int SO_N_MOVES = (mode == "easy") ? 20 : 200; \
+const int SO_MIN_HOLD_NSEC = (mode == "easy") ? 100000000 : 100000000; \
+const int DIST_PED_GIOC = (mode == "easy") ? 8 : 2; \
 
 #define DIST_BAND 8 /* < 10 */
 
@@ -59,7 +54,7 @@ flag opzionali
 - DEBUG per stampare piú informazioni
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 1
+#define DEBUG 0
 #define ENABLE_COLORS 1
 
 #define TEST_ERROR  if(errno) {fprintf(stderr, \

@@ -17,6 +17,7 @@ int checkPosPedine(int, int);
 void initObiettivi(int);
 
 /* globali */
+// TROVARE MODO PER INIZIALIZZARLI IN MAIN O MENO
 pid_t pids_pedine[SO_NUM_P];
 ped *mc_ped_squadra;
 int *mc_sem_scac;

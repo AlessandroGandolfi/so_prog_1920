@@ -49,15 +49,19 @@ void testSemToken();
 #endif
 
 /* globali */
-gioc giocatori[SO_NUM_G];
-int *mc_sem_scac;
-band *mc_bandiere;
-char (*mc_char_scac)[SO_BASE]; /* puntatore ad array di lunghezza SO_BASE */
+// TROVARE MODO PER INIZIALIZZARLI IN MAIN O MENO
+gioc giocatori[SO_NUM_G]; /* array giocatori */
+int *mc_sem_scac; /* array di id dei set di semafori in mc */
+band *mc_bandiere; /* array di bandiere in mc */
+char (*mc_char_scac)[SO_BASE]; /* scacchiera di caratteri in mc, puntatori ad array di lunghezza SO_BASE */
 int token_gioc, mc_id_sem, mc_id_scac, mc_id_band, msg_id_coda, num_band;
 
 int main(int argc, char **argv) {
     int status, i;
     msg_fine_piaz msg;
+
+    CHECK_MODE(argv[1]);
+    CONFIG_VALUES(argv[1]);
 
     srand(time(NULL) + getpid());
 

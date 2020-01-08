@@ -21,7 +21,7 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 
 #include "config.h"
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) {    
     int mc_id_sem;
     int *mc_sem_scac;
     struct timespec arg_sleep;
