@@ -12,7 +12,7 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 #include "config.h"
 
 void initPedine(int, int, int);
-void piazzaPedina(int);
+void piazzaPedina(int, int);
 int checkPosPedine(int, int);
 void initObiettivi(int);
 
@@ -21,6 +21,7 @@ pid_t pids_pedine[SO_NUM_P];
 ped *mc_ped_squadra;
 int *mc_sem_scac;
 int mc_id_squadra, msg_id_coda, mc_id_scac;
+char (*mc_char_scac)[SO_BASE];
 
 /* 
 parametri a giocatore 
@@ -50,6 +51,9 @@ int main(int argc, char **argv) {
     mc_sem_scac = (int *) shmat(mc_id_sem, NULL, 0);
     TEST_ERROR;
 
+    mc_char_scac = (char (*)[SO_BASE]) shmat(mc_id_scac, NULL, 0);
+    TEST_ERROR;
+
     /* creazione pedine, valorizzazione pids_pedine */
     initPedine(token_gioc, pos_token, mc_id_sem);
 
@@ -60,6 +64,9 @@ int main(int argc, char **argv) {
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
+    TEST_ERROR;
+
+    shmdt(mc_char_scac);
     TEST_ERROR;
 
     shmdt(mc_sem_scac);
@@ -111,7 +118,7 @@ void initPedine(int token_gioc, int pos_token, int mc_id_sem) {
 
         if(DEBUG) printf("gioc %d: ped: %d piazzata\n", pos_token, i);
 
-        piazzaPedina(i);
+        piazzaPedina(i, pos_token);
         
         /* 
         ultimo giocatore che piazza una pedina manda un messaggio al master
@@ -148,7 +155,7 @@ void initPedine(int token_gioc, int pos_token, int mc_id_sem) {
     }
 }
 
-void piazzaPedina(int ind_pedine) {
+void piazzaPedina(int ind_pedine, int pos_token) {
     int riga, colonna;
     struct sembuf sops;
     
@@ -173,7 +180,7 @@ void piazzaPedina(int ind_pedine) {
     mc_ped_squadra[ind_pedine].pos_attuale.y = riga;
 
     /* piazzamento pedine su char scacchiera */
-    // TODO shmat e valorizzazione
+    mc_char_scac[riga][colonna] = (pos_token + 1) + '0';
 }
 
 int checkPosPedine(int riga, int colonna) {
