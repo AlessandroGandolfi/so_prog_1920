@@ -16,41 +16,57 @@
 #include <sys/sem.h>
 #include <math.h>
 
-#ifndef EASY
-#ifndef HARD
-#define EASY /* default facile */
-#endif
-#endif
+const int SO_NUM_G;
+const int SO_NUM_P;
+const int SO_MAX_TIME;
+const int SO_BASE;
+const int SO_ALTEZZA;
+const int SO_FLAG_MIN;
+const int SO_FLAG_MAX;
+const int SO_ROUND_SCORE;
+const int SO_N_MOVES;
+const int SO_MIN_HOLD_NSEC;
+const int DIST_PED_GIOC;
 
-#ifdef EASY
-#define SO_NUM_G 2
-#define SO_NUM_P 10
-#define SO_MAX_TIME 3
-#define SO_BASE 60
-#define SO_ALTEZZA 20
-#define SO_FLAG_MIN 5
-#define SO_FLAG_MAX 5
-#define SO_ROUND_SCORE 10
-#define SO_N_MOVES 20
-#define SO_MIN_HOLD_NSEC 100000000
+#define INIT_ENV(mode) \
+/* overwrite abilitato nel caso progetto precedente non le rimuova */ \
+setenv("SO_NUM_G", (mode == "easy") ? "2" : "4", 1); \
+setenv("SO_NUM_P", (mode == "easy") ? "10" : "400", 1); \
+setenv("SO_MAX_TIME", (mode == "easy") ? "3" : "1", 1); \
+setenv("SO_BASE", (mode == "easy") ? "60" : "120", 1); \
+setenv("SO_ALTEZZA", (mode == "easy") ? "20" : "40", 1); \
+setenv("SO_FLAG_MIN", (mode == "easy") ? "5" : "5", 1); \
+setenv("SO_FLAG_MAX", (mode == "easy") ? "5" : "40", 1); \
+setenv("SO_ROUND_SCORE", (mode == "easy") ? "10" : "200", 1); \
+setenv("SO_N_MOVES", (mode == "easy") ? "20" : "200", 1); \
+setenv("SO_MIN_HOLD_NSEC", "100000000", 1); \
+setenv("DIST_PED_GIOC", (mode == "easy") ? "8" : "2", 1); \
 
-#define DIST_PED_GIOC 8 /* < 10 */
-#else
-#ifdef HARD
-#define SO_NUM_G 4
-#define SO_NUM_P 400
-#define SO_MAX_TIME 1
-#define SO_BASE 120
-#define SO_ALTEZZA 40
-#define SO_FLAG_MIN 5
-#define SO_FLAG_MAX 40
-#define SO_ROUND_SCORE 200
-#define SO_N_MOVES 200
-#define SO_MIN_HOLD_NSEC 100000000
+#define GET_CONFIG \
+const int SO_NUM_G = atoi(getenv("SO_NUM_G")); \
+const int SO_NUM_P = atoi(getenv("SO_NUM_P")); \
+const int SO_MAX_TIME = atoi(getenv("SO_MAX_TIME")); \
+const int SO_BASE = atoi(getenv("SO_BASE")); \
+const int SO_ALTEZZA = atoi(getenv("SO_ALTEZZA")); \
+const int SO_FLAG_MIN = atoi(getenv("SO_FLAG_MIN")); \
+const int SO_FLAG_MAX = atoi(getenv("SO_FLAG_MAX")); \
+const int SO_ROUND_SCORE = atoi(getenv("SO_ROUND_SCORE")); \
+const int SO_N_MOVES = atoi(getenv("SO_N_MOVES")); \
+const int SO_MIN_HOLD_NSEC = atoi(getenv("SO_MIN_HOLD_NSEC")); \
+const int DIST_PED_GIOC = atoi(getenv("DIST_PED_GIOC")); \
 
-#define DIST_PED_GIOC 2 /* < 3 */
-#endif
-#endif
+#define RM_ENV \
+unsetenv("SO_NUM_G"); \
+unsetenv("SO_NUM_P"); \
+unsetenv("SO_MAX_TIME"); \
+unsetenv("SO_BASE"); \
+unsetenv("SO_ALTEZZA"); \
+unsetenv("SO_FLAG_MIN"); \
+unsetenv("SO_FLAG_MAX"); \
+unsetenv("SO_ROUND_SCORE"); \
+unsetenv("SO_N_MOVES"); \
+unsetenv("SO_MIN_HOLD_NSEC"); \
+unsetenv("DIST_PED_GIOC"); \
 
 #define DIST_BAND 8 /* < 10 */
 
