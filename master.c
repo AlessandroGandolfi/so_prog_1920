@@ -47,13 +47,14 @@ int checkPosBandiere(int, int);
 
 #if DEBUG
 void testSemToken();
+void testConfig();
 #endif
 
 /* globali 
 gioc giocatori[SO_NUM_G];
+char (*mc_char_scac)[SO_BASE]; /* puntatore ad array di lunghezza SO_BASE */
 int *mc_sem_scac;
 band *mc_bandiere;
-char (*mc_char_scac)[SO_BASE]; /* puntatore ad array di lunghezza SO_BASE */
 int token_gioc, mc_id_sem, mc_id_scac, mc_id_band, msg_id_coda, num_band;
 
 int main(int argc, char **argv) {
@@ -61,12 +62,12 @@ int main(int argc, char **argv) {
     msg_fine_piaz msg;
 
     checkMode(argc, argv[1]);
-    INIT_ENV(argv[1]);
     GET_CONFIG;
 
-    srand(time(NULL) + getpid());
+    if(DEBUG) testConfig();
+    // srand(time(NULL) + getpid());
 
-    initRisorse();
+    // initRisorse();
 
     // initSemScacchiera();
 
@@ -99,9 +100,22 @@ int main(int argc, char **argv) {
 }
 
 void checkMode(int argc, char *mode) {
-    if(argc < 2 || (mode != "easy" && mode != "hard")) {
+    if(argc < 2 || (strcmp(mode, "easy") != 0 && strcmp(mode, "hard") != 0)) {
         printf("Specificare \"easy\" o \"hard\" per avviare il progetto\n");
         exit(0);
+    } else {
+        /* overwrite disabilitato perché create nel contesto della singola esecuzione */
+        setenv("SO_NUM_G", (!strcmp(mode, "easy")) ? "2" : "4", 0);
+        setenv("SO_NUM_P", (!strcmp(mode, "easy")) ? "10" : "400", 0);
+        setenv("SO_MAX_TIME", (!strcmp(mode, "easy")) ? "3" : "1", 0);
+        setenv("SO_BASE", (!strcmp(mode, "easy")) ? "60" : "120", 0);
+        setenv("SO_ALTEZZA", (!strcmp(mode, "easy")) ? "20" : "40", 0);
+        setenv("SO_FLAG_MIN", (!strcmp(mode, "easy")) ? "5" : "5", 0);
+        setenv("SO_FLAG_MAX", (!strcmp(mode, "easy")) ? "5" : "40", 0);
+        setenv("SO_ROUND_SCORE", (!strcmp(mode, "easy")) ? "10" : "200", 0);
+        setenv("SO_N_MOVES", (!strcmp(mode, "easy")) ? "20" : "200", 0);
+        setenv("SO_MIN_HOLD_NSEC", "100000000", 0);
+        setenv("DIST_PED_GIOC", (!strcmp(mode, "easy")) ? "8" : "2", 0);
     }
 }
 
@@ -156,8 +170,6 @@ void checkMode(int argc, char *mode) {
 
 //     msgctl(msg_id_coda, IPC_RMID, NULL);
 //     TEST_ERROR;
-
-//     RM_ENV;
 // }
 
 // void stampaScacchiera() {
@@ -380,10 +392,9 @@ void checkMode(int argc, char *mode) {
 //     return check;
 // }
 
-void initRisorse() {
-    int i, j;
+// void initRisorse() {
+//     int i, j;
 
-    printf("val di SO_NUM_G: %d\n", SO_NUM_G);
     // /* creazione coda msg */
     // msg_id_coda = msgget(IPC_PRIVATE, IPC_CREAT | IPC_EXCL | 0600);
     // TEST_ERROR;
@@ -401,19 +412,23 @@ void initRisorse() {
     // TEST_ERROR;
     // mc_sem_scac = (int *) shmat(mc_id_sem, NULL, 0);
     // TEST_ERROR;
-}
+// }
 
 #if DEBUG
-void testSemToken() {
-    unsigned short val_array[SO_BASE];
-    int i;
+// void testSemToken() {
+//     unsigned short val_array[SO_BASE];
+//     int i;
 
-    sleep(1);
+//     sleep(1);
 
-    semctl(token_gioc, 0, GETALL, val_array);
+//     semctl(token_gioc, 0, GETALL, val_array);
 
-    for(i = 0; i < SO_NUM_G; i++) {
-        printf("master: token gioc %d settato a %hu\n", i, val_array[i]);
-    }
+//     for(i = 0; i < SO_NUM_G; i++) {
+//         printf("master: token gioc %d settato a %hu\n", i, val_array[i]);
+//     }
+// }
+
+void testConfig() {
+    printf("val di SO_NUM_G: %d\n", SO_NUM_G);
 }
 #endif

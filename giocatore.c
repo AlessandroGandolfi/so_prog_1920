@@ -17,6 +17,7 @@ int checkPosPedine(int, int);
 void initObiettivi(int);
 
 /* globali */
+GET_CONFIG;
 pid_t pids_pedine[SO_NUM_P];
 ped *mc_ped_squadra;
 int *mc_sem_scac;
@@ -36,7 +37,7 @@ int main(int argc, char **argv) {
     int token_gioc, pos_token, mc_id_sem, mc_id_band, num_band;
 
     srand(time(NULL) + getpid());
-
+    
     token_gioc = atoi(argv[0]);
     pos_token = atoi(argv[1]);
     mc_id_sem = atoi(argv[2]);

@@ -16,58 +16,6 @@
 #include <sys/sem.h>
 #include <math.h>
 
-const int SO_NUM_G;
-const int SO_NUM_P;
-const int SO_MAX_TIME;
-const int SO_BASE;
-const int SO_ALTEZZA;
-const int SO_FLAG_MIN;
-const int SO_FLAG_MAX;
-const int SO_ROUND_SCORE;
-const int SO_N_MOVES;
-const int SO_MIN_HOLD_NSEC;
-const int DIST_PED_GIOC;
-
-#define INIT_ENV(mode) \
-/* overwrite abilitato nel caso progetto precedente non le rimuova */ \
-setenv("SO_NUM_G", (mode == "easy") ? "2" : "4", 1); \
-setenv("SO_NUM_P", (mode == "easy") ? "10" : "400", 1); \
-setenv("SO_MAX_TIME", (mode == "easy") ? "3" : "1", 1); \
-setenv("SO_BASE", (mode == "easy") ? "60" : "120", 1); \
-setenv("SO_ALTEZZA", (mode == "easy") ? "20" : "40", 1); \
-setenv("SO_FLAG_MIN", (mode == "easy") ? "5" : "5", 1); \
-setenv("SO_FLAG_MAX", (mode == "easy") ? "5" : "40", 1); \
-setenv("SO_ROUND_SCORE", (mode == "easy") ? "10" : "200", 1); \
-setenv("SO_N_MOVES", (mode == "easy") ? "20" : "200", 1); \
-setenv("SO_MIN_HOLD_NSEC", "100000000", 1); \
-setenv("DIST_PED_GIOC", (mode == "easy") ? "8" : "2", 1); \
-
-#define GET_CONFIG \
-const int SO_NUM_G = atoi(getenv("SO_NUM_G")); \
-const int SO_NUM_P = atoi(getenv("SO_NUM_P")); \
-const int SO_MAX_TIME = atoi(getenv("SO_MAX_TIME")); \
-const int SO_BASE = atoi(getenv("SO_BASE")); \
-const int SO_ALTEZZA = atoi(getenv("SO_ALTEZZA")); \
-const int SO_FLAG_MIN = atoi(getenv("SO_FLAG_MIN")); \
-const int SO_FLAG_MAX = atoi(getenv("SO_FLAG_MAX")); \
-const int SO_ROUND_SCORE = atoi(getenv("SO_ROUND_SCORE")); \
-const int SO_N_MOVES = atoi(getenv("SO_N_MOVES")); \
-const int SO_MIN_HOLD_NSEC = atoi(getenv("SO_MIN_HOLD_NSEC")); \
-const int DIST_PED_GIOC = atoi(getenv("DIST_PED_GIOC")); \
-
-#define RM_ENV \
-unsetenv("SO_NUM_G"); \
-unsetenv("SO_NUM_P"); \
-unsetenv("SO_MAX_TIME"); \
-unsetenv("SO_BASE"); \
-unsetenv("SO_ALTEZZA"); \
-unsetenv("SO_FLAG_MIN"); \
-unsetenv("SO_FLAG_MAX"); \
-unsetenv("SO_ROUND_SCORE"); \
-unsetenv("SO_N_MOVES"); \
-unsetenv("SO_MIN_HOLD_NSEC"); \
-unsetenv("DIST_PED_GIOC"); \
-
 #define DIST_BAND 8 /* < 10 */
 
 /* 
@@ -141,6 +89,31 @@ typedef struct _msg_piaz {
     long mtype;
     int fine_piaz;
 } msg_fine_piaz;
+
+int SO_NUM_G;
+int SO_NUM_P;
+int SO_MAX_TIME;
+int SO_BASE;
+int SO_ALTEZZA;
+int SO_FLAG_MIN;
+int SO_FLAG_MAX;
+int SO_ROUND_SCORE;
+int SO_N_MOVES;
+int SO_MIN_HOLD_NSEC;
+int DIST_PED_GIOC;
+
+#define GET_CONFIG \
+SO_NUM_G = atoi(getenv("SO_NUM_G")); \
+SO_NUM_P = atoi(getenv("SO_NUM_P")); \
+SO_MAX_TIME = atoi(getenv("SO_MAX_TIME")); \
+SO_BASE = atoi(getenv("SO_BASE")); \
+SO_ALTEZZA = atoi(getenv("SO_ALTEZZA")); \
+SO_FLAG_MIN = atoi(getenv("SO_FLAG_MIN")); \
+SO_FLAG_MAX = atoi(getenv("SO_FLAG_MAX")); \
+SO_ROUND_SCORE = atoi(getenv("SO_ROUND_SCORE")); \
+SO_N_MOVES = atoi(getenv("SO_N_MOVES")); \
+SO_MIN_HOLD_NSEC = atoi(getenv("SO_MIN_HOLD_NSEC")); \
+DIST_PED_GIOC = atoi(getenv("DIST_PED_GIOC")); \
 
 int calcDist(int x1, int x2, int y1, int y2) {
     int distanza, dif_riga, dif_col, dif_min, dif_max;
