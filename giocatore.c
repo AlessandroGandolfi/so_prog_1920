@@ -35,9 +35,8 @@ int main(int argc, char **argv) {
     int status, i;
     int token_gioc, pos_token, mc_id_sem, mc_id_band, num_band;
 
+    printf("GIOC: %s\n", environ[0]);
     GET_CONFIG;
-
-    printf("GIOC: %d\n", SO_NUM_G);
 
     // srand(time(NULL) + getpid());
     

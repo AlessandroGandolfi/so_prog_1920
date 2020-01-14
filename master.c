@@ -52,7 +52,7 @@ void testConfig();
 
 /* globali */
 gioc *giocatori;
-char **mc_char_scac; /* puntatore ad array di lunghezza SO_BASE */
+char *mc_char_scac;
 int *mc_sem_scac;
 band *mc_bandiere;
 int mc_id_sem, mc_id_scac, mc_id_band, msg_id_coda;
@@ -64,19 +64,26 @@ int main(int argc, char **argv) {
     checkMode(argc, argv[1]);
     GET_CONFIG;
     
-    if(DEBUG) testConfig();
+#if DEBUG
+    testConfig();
+#endif
+
     srand(time(NULL) + getpid());
 
     initRisorse();
 
+    if(DEBUG) printf("master: fine init risorse\n");
+
     initSemScacchiera();
+
+    if(DEBUG) printf("master: fine init scacchiera\n");
 
     /* creazione giocatori, valorizzazione pids_giocatori */
     token_gioc = initGiocatori();
 
     /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
     if(DEBUG) printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
-    msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
+    /* msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0); */
     TEST_ERROR;
 
     if(DEBUG) printf("master: val msg ricevuto %d\n", msg.fine_piaz);
@@ -85,7 +92,7 @@ int main(int argc, char **argv) {
     initBandiere(token_gioc);
 
     if(DEBUG) {
-        sleep(3);
+        sleep(1);
         stampaScacchiera();
     }
 
@@ -122,11 +129,11 @@ void checkMode(int argc, char *mode) {
 void initSemScacchiera() {
     int i;
     semun sem_arg;
-    unsigned short val_array[SO_BASE];
+
+    sem_arg.array = (unsigned short *) calloc(SO_BASE, sizeof(unsigned short));
     
-    /* memset cambia 1 a 127 per cast da unsigned short a int */ 
-    for(i = 0; i < SO_BASE; i++) val_array[i] = 1;
-    sem_arg.array = val_array;
+    /* memset cambia 1 a 127 per cast da unsigned short a int */
+    for(i = 0; i < SO_BASE; i++) sem_arg.array[i] = 1; 
 
     for(i = 0; i < SO_ALTEZZA; i++) {
         mc_sem_scac[i] = semget(IPC_PRIVATE, SO_BASE, 0600);
@@ -196,33 +203,31 @@ void stampaScacchiera() {
     if(DEBUG) printf("master: fine calcolo mosse rimanenti\n");
 
     /* stampa matrice caratteri */
-    for(i = 0; i < SO_ALTEZZA; i++) {
-        for(j = 0; j < SO_BASE; j++) {
-            if(ENABLE_COLORS) {
-                switch(mc_char_scac[i][j]) {
-                    case '1':
-                        printf("\033[1;31m");
-                        break;
-                    case '2':
-                        printf("\033[1;34m");
-                        break;
-                    case '3':
-                        printf("\033[1;32m");
-                        break;
-                    case '4':
-                        printf("\033[1;36m");
-                        break;
-                    case 'B':
-                        printf("\033[0;33m");
-                        break;
-                    default:
-                        printf("\033[0m");
-                        break;
-                }
+    for(i = 0; i < (SO_ALTEZZA * SO_BASE); i++) {
+        if(ENABLE_COLORS) {
+            switch(mc_char_scac[i]) {
+                case '1':
+                    printf("\033[1;31m");
+                    break;
+                case '2':
+                    printf("\033[1;34m");
+                    break;
+                case '3':
+                    printf("\033[1;32m");
+                    break;
+                case '4':
+                    printf("\033[1;36m");
+                    break;
+                case 'B':
+                    printf("\033[0;33m");
+                    break;
+                default:
+                    printf("\033[0m");
+                    break;
             }
-            printf("%c", mc_char_scac[i][j]);
         }
-        printf("\n");
+        printf("%c", mc_char_scac[i]);
+        if(!((i + 1) % SO_BASE)) printf("\n");
     }
 
     if(DEBUG) printf("master: fine stampa scacchiera\n");
@@ -237,13 +242,14 @@ int initGiocatori() {
     int i, token_gioc;
     char *param_giocatori[6];
     char tmp_params[5][sizeof(char *)];
+    char env_params[12][sizeof(char *)];
     semun sem_arg;
-    unsigned short val_array[SO_BASE];
-    
-    /* init token posizionamento pedine */
-    for(i = 0; i < SO_NUM_G; i++) val_array[i] = i ? 0 : 1;
-    sem_arg.array = val_array;
 
+    sem_arg.array = (unsigned short *) calloc(SO_BASE, sizeof(unsigned short));
+
+    /* init token posizionamento pedine */
+    for(i = 0; i < SO_NUM_G; i++) sem_arg.array[i] = i ? 0 : 1;
+    
     token_gioc = semget(IPC_PRIVATE, SO_NUM_G, 0600);
     TEST_ERROR;
     semctl(token_gioc, 0, SETALL, sem_arg);
@@ -268,6 +274,7 @@ int initGiocatori() {
     param_giocatori[5] = tmp_params[5];
     param_giocatori[6] = NULL;
 
+    SET_ENV_PARAMS;
 
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].punteggio = 0;
@@ -292,7 +299,7 @@ int initGiocatori() {
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
             case 0:
-                execve("./giocatore", param_giocatori, NULL);
+                execve("./giocatore", param_giocatori, env_params);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
         }
@@ -307,12 +314,13 @@ void initBandiere(int token_gioc) {
     int i, riga, colonna, sem_val, tot_punti_rim, num_band;
     msg_band msg_new_band;
     semun sem_arg;
-    unsigned short val_token[SO_NUM_G];
 
     tot_punti_rim = SO_ROUND_SCORE;
     num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN + 1)) + SO_FLAG_MIN;
 
-    if(DEBUG) printf("num bandiere %d\n", num_band);
+    if(DEBUG) num_band = (SO_NUM_G == 2) ? 5 : 40;
+
+    printf("%d bandiere piazzate\n", num_band);
 
     mc_id_band = shmget(IPC_PRIVATE, num_band * sizeof(band), S_IRUSR | S_IWUSR);
     TEST_ERROR;
@@ -352,20 +360,25 @@ void initBandiere(int token_gioc) {
         tot_punti_rim -= mc_bandiere[i].punti;
 
         /* piazzamento bandiere su scacchiera */
-        mc_char_scac[riga][colonna] = 'B';
+        mc_char_scac[(riga * SO_BASE) + colonna] = 'B';
     }
 
-    if(DEBUG) testSemToken(token_gioc);
+#if DEBUG
+    testSemToken(token_gioc);
+#endif
 
     /* 
     setto token a 1 per pedine in wait for 0 successivamente
     da decrementare a inizio round per inizio movimenti
     */
-    for(i = 0; i < SO_NUM_G; i++) val_token[i] = 1;
-    sem_arg.array = val_token;
+    sem_arg.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
+    for(i = 0; i < SO_NUM_G; i++) sem_arg.array[i] = 1;
     semctl(token_gioc, 0, SETALL, sem_arg);
+    free(sem_arg.array);
 
-    if(DEBUG) testSemToken(token_gioc);
+#if DEBUG
+    testSemToken(token_gioc);
+#endif
 
     msg_new_band.ind = mc_id_band;
     msg_new_band.mtype = (long) getpid();
@@ -377,21 +390,16 @@ void initBandiere(int token_gioc) {
 }
 
 int checkPosBandiere(int riga, int colonna, int num_band) {
-    int i, check;
-
-    i = 0;
-    check = 0;
+    int i;
 
     /* 
     ciclo su array fino a quando non trovo band con coord -1, -1 (da lí in poi non ancora piazzate) 
     o se ne trovo una giá piazzata troppo vicina 
     */
-    while(mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1 && i < num_band && check == 0) {
-        if(calcDist(colonna, mc_bandiere[i].pos_band.x, riga, mc_bandiere[i].pos_band.y) < DIST_BAND) check++;
-        i++;
-    }
+    for(i = 0; i < num_band, mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1; i++)
+        if(calcDist(colonna, mc_bandiere[i].pos_band.x, riga, mc_bandiere[i].pos_band.y) < DIST_BAND) return TRUE;
 
-    return check;
+    return FALSE;
 }
 
 void initRisorse() {
@@ -400,16 +408,12 @@ void initRisorse() {
     TEST_ERROR;
 
     /* creazione e collegamento a mc scacchiera */ 
-    mc_id_scac = shmget(IPC_PRIVATE, sizeof(char[SO_ALTEZZA][SO_BASE]), S_IRUSR | S_IWUSR);
+    mc_id_scac = shmget(IPC_PRIVATE, sizeof(char) * SO_ALTEZZA * SO_BASE, S_IRUSR | S_IWUSR);
     TEST_ERROR;
-    mc_char_scac = (char **) shmat(mc_id_scac, NULL, 0);
+    mc_char_scac = shmat(mc_id_scac, NULL, 0);
     TEST_ERROR;
     /* scacchiera tutta a 0, caratteri sovrascritti da semafori e pedine in futuro */
-    memset(mc_char_scac, '0', sizeof(char[SO_ALTEZZA][SO_BASE]));
-
-    printf("aaaaaaaaa\n");
-    printf("%s/n", mc_char_scac[0]);
-    printf("bbbbbbbbb\n");
+    memset(mc_char_scac, '0', sizeof(char) * SO_ALTEZZA * SO_BASE);
 
     /* creazione e collegamento a mc sem scacchiera */
     mc_id_sem = shmget(IPC_PRIVATE, sizeof(int) * SO_ALTEZZA, S_IRUSR | S_IWUSR);
@@ -422,15 +426,15 @@ void initRisorse() {
 
 #if DEBUG
 void testSemToken(int token_gioc) {
-    unsigned short val_array[SO_BASE];
+    unsigned short *val_array;
     int i;
 
-    sleep(1);
+    val_array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
 
     semctl(token_gioc, 0, GETALL, val_array);
 
     for(i = 0; i < SO_NUM_G; i++) {
-        printf("master: token gioc %d settato a %hu\n", i, val_array[i]);
+        printf("master: token gioc %d settato a %hu\n", (i + 1), val_array[i]);
     }
 }
 

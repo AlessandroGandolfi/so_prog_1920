@@ -16,6 +16,9 @@
 #include <sys/sem.h>
 #include <math.h>
 
+#define TRUE 1
+#define FALSE 0
+
 #define DIST_BAND 8 /* < 10 */
 
 /* 
@@ -23,7 +26,7 @@ flag opzionali
 - DEBUG per stampare piú informazioni
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 1
+#define DEBUG 0
 #define ENABLE_COLORS 1
 
 #define TEST_ERROR  if(errno) {fprintf(stderr, \
