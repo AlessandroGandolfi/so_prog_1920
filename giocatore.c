@@ -35,8 +35,11 @@ int main(int argc, char **argv) {
     int status, i;
     int token_gioc, pos_token, mc_id_sem, mc_id_band, num_band;
 
-    printf("GIOC: %s\n", environ[0]);
-    GET_CONFIG;
+    getConfig("easy");
+    
+    #if DEBUG
+    testConfig();
+    #endif
 
     // srand(time(NULL) + getpid());
     
@@ -79,6 +82,72 @@ int main(int argc, char **argv) {
     // TEST_ERROR;
 
     exit(EXIT_SUCCESS);
+}
+
+void getConfig(char *mode) {
+    FILE *fs;
+    char *config_file;
+    char config_value[sizeof(int)];
+
+    // config_file = (char *) malloc(sizeof(char));
+    config_file = "./config/";
+
+    strcat(config_file, mode);
+    strcat(config_file, ".txt");
+    
+    if(DEBUG) printf("path file conf: %s\n", config_file);
+
+    fs = fopen(config_file, "r");
+
+    if(fs) {
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_NUM_G = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_NUM_P = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_MAX_TIME = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_BASE = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_ALTEZZA = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_FLAG_MIN = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_FLAG_MAX = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_ROUND_SCORE = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_N_MOVES = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_MIN_HOLD_NSEC = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        DIST_PED_GIOC = atoi(config_value);
+    } else {
+        printf("Errore apertura file di configurazione\n");
+        exit(0);
+    }
+
+    fclose(fs);
 }
 
 // void initPedine(int token_gioc, int pos_token, int mc_id_sem) {
@@ -204,6 +273,19 @@ int main(int argc, char **argv) {
 //     return check;
 // }
 
+// int calcDist(int x1, int x2, int y1, int y2) {
+//     int distanza, dif_riga, dif_col, dif_min, dif_max;
+
+//     dif_riga = abs(y1 - y2);
+//     dif_col = abs(x1 - x2);
+    
+//     dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
+//     dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
+//     distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
+
+//     return distanza;
+// }
+
 // void initObiettivi(int msg_id_coda) {
 //     msg_band msg;
 
@@ -211,3 +293,27 @@ int main(int argc, char **argv) {
 //     msgrcv(msg_id_coda, &msg, sizeof(msg_band) - sizeof(long), (long) getppid(), 0);
 //     TEST_ERROR;
 // }
+
+#if DEBUG
+void testSemToken(int token_gioc) {
+    unsigned short *val_array;
+    int i;
+
+    val_array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
+
+    semctl(token_gioc, 0, GETALL, val_array);
+
+    for(i = 0; i < SO_NUM_G; i++) {
+        printf("master: token gioc %d settato a %hu\n", (i + 1), val_array[i]);
+    }
+}
+
+void testConfig() {
+    if(SO_NUM_G)
+        printf("gioc: valori configurazione correttamente estratti\n");
+    else {
+        printf("gioc: errore valorizzazione configurazione\n");
+        exit(EXIT_FAILURE);
+    }
+}
+#endif

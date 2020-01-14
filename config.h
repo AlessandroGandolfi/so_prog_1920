@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/sem.h>
 #include <math.h>
+#include <dirent.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -26,7 +27,7 @@ flag opzionali
 - DEBUG per stampare piú informazioni
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 0
+#define DEBUG 1
 #define ENABLE_COLORS 1
 
 #define TEST_ERROR  if(errno) {fprintf(stderr, \
@@ -105,28 +106,10 @@ int SO_N_MOVES;
 int SO_MIN_HOLD_NSEC;
 int DIST_PED_GIOC;
 
-#define GET_CONFIG \
-SO_NUM_G = atoi(getenv("SO_NUM_G")); \
-SO_NUM_P = atoi(getenv("SO_NUM_P")); \
-SO_MAX_TIME = atoi(getenv("SO_MAX_TIME")); \
-SO_BASE = atoi(getenv("SO_BASE")); \
-SO_ALTEZZA = atoi(getenv("SO_ALTEZZA")); \
-SO_FLAG_MIN = atoi(getenv("SO_FLAG_MIN")); \
-SO_FLAG_MAX = atoi(getenv("SO_FLAG_MAX")); \
-SO_ROUND_SCORE = atoi(getenv("SO_ROUND_SCORE")); \
-SO_N_MOVES = atoi(getenv("SO_N_MOVES")); \
-SO_MIN_HOLD_NSEC = atoi(getenv("SO_MIN_HOLD_NSEC")); \
-DIST_PED_GIOC = atoi(getenv("DIST_PED_GIOC")); \
+int calcDist(int, int, int, int);
+void getConfig(char *);
 
-int calcDist(int x1, int x2, int y1, int y2) {
-    int distanza, dif_riga, dif_col, dif_min, dif_max;
-
-    dif_riga = abs(y1 - y2);
-    dif_col = abs(x1 - x2);
-    
-    dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
-    dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
-    distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
-
-    return distanza;
-}
+#if DEBUG
+void testSemToken(int);
+void testConfig();
+#endif

@@ -45,11 +45,6 @@ void stampaScacchiera();
 void initBandiere(int);
 int checkPosBandiere(int, int, int);
 
-#if DEBUG
-void testSemToken(int);
-void testConfig();
-#endif
-
 /* globali */
 gioc *giocatori;
 char *mc_char_scac;
@@ -62,11 +57,10 @@ int main(int argc, char **argv) {
     msg_fine_piaz msg;
 
     checkMode(argc, argv[1]);
-    GET_CONFIG;
     
-#if DEBUG
+    #if DEBUG
     testConfig();
-#endif
+    #endif
 
     srand(time(NULL) + getpid());
 
@@ -107,23 +101,82 @@ int main(int argc, char **argv) {
 }
 
 void checkMode(int argc, char *mode) {
-    if(argc < 2 || (strcmp(mode, "easy") != 0 && strcmp(mode, "hard") != 0)) {
+    if(argc < 2 || (strcmp(mode, "easy") != 0 && strcmp(mode, "hard") != 0
+    #if DEBUG
+                    && strcmp(mode, "debug") != 0
+    #endif
+    )) {
         printf("Specificare \"easy\" o \"hard\" per avviare il progetto\n");
         exit(0);
     } else {
-        /* overwrite disabilitato perché create nel contesto della singola esecuzione */
-        setenv("SO_NUM_G", (!strcmp(mode, "easy")) ? "2" : "4", 0);
-        setenv("SO_NUM_P", (!strcmp(mode, "easy")) ? "10" : "400", 0);
-        setenv("SO_MAX_TIME", (!strcmp(mode, "easy")) ? "3" : "1", 0);
-        setenv("SO_BASE", (!strcmp(mode, "easy")) ? "60" : "120", 0);
-        setenv("SO_ALTEZZA", (!strcmp(mode, "easy")) ? "20" : "40", 0);
-        setenv("SO_FLAG_MIN", (!strcmp(mode, "easy")) ? "5" : "5", 0);
-        setenv("SO_FLAG_MAX", (!strcmp(mode, "easy")) ? "5" : "40", 0);
-        setenv("SO_ROUND_SCORE", (!strcmp(mode, "easy")) ? "10" : "200", 0);
-        setenv("SO_N_MOVES", (!strcmp(mode, "easy")) ? "20" : "200", 0);
-        setenv("SO_MIN_HOLD_NSEC", "100000000", 0);
-        setenv("DIST_PED_GIOC", (!strcmp(mode, "easy")) ? "8" : "2", 0);
+        getConfig(mode);
     }
+}
+
+void getConfig(char *mode) {
+    FILE *fs;
+    char *config_file;
+    char config_value[sizeof(int)];
+
+    // config_file = (char *) malloc(sizeof(char));
+    config_file = "./config/";
+
+    strcat(config_file, mode);
+    strcat(config_file, ".txt");
+    
+    if(DEBUG) printf("path file conf: %s\n", config_file);
+
+    fs = fopen(config_file, "r");
+
+    if(fs) {
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_NUM_G = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_NUM_P = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_MAX_TIME = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_BASE = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_ALTEZZA = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_FLAG_MIN = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_FLAG_MAX = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_ROUND_SCORE = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_N_MOVES = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        SO_MIN_HOLD_NSEC = atoi(config_value);
+        strcpy(config_value, "");
+
+        fscanf(fs, "%s%*[^\n]", config_value);
+        DIST_PED_GIOC = atoi(config_value);
+    } else {
+        printf("Errore apertura file di configurazione\n");
+        exit(0);
+    }
+
+    fclose(fs);
 }
 
 void initSemScacchiera() {
@@ -242,7 +295,6 @@ int initGiocatori() {
     int i, token_gioc;
     char *param_giocatori[6];
     char tmp_params[5][sizeof(char *)];
-    char env_params[12][sizeof(char *)];
     semun sem_arg;
 
     sem_arg.array = (unsigned short *) calloc(SO_BASE, sizeof(unsigned short));
@@ -264,6 +316,8 @@ int initGiocatori() {
     - id mc char scacchiera
     - id coda msg
     */
+
+    // aggiungere mode
     sprintf(tmp_params[0], "%d", token_gioc);
     param_giocatori[0] = tmp_params[0];
     sprintf(tmp_params[2], "%d", mc_id_sem);
@@ -273,8 +327,6 @@ int initGiocatori() {
     sprintf(tmp_params[5], "%d", mc_id_scac);
     param_giocatori[5] = tmp_params[5];
     param_giocatori[6] = NULL;
-
-    SET_ENV_PARAMS;
 
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].punteggio = 0;
@@ -299,7 +351,7 @@ int initGiocatori() {
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
             case 0:
-                execve("./giocatore", param_giocatori, env_params);
+                execv("./giocatore", param_giocatori);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
         }
@@ -363,9 +415,9 @@ void initBandiere(int token_gioc) {
         mc_char_scac[(riga * SO_BASE) + colonna] = 'B';
     }
 
-#if DEBUG
+    #if DEBUG
     testSemToken(token_gioc);
-#endif
+    #endif
 
     /* 
     setto token a 1 per pedine in wait for 0 successivamente
@@ -376,9 +428,9 @@ void initBandiere(int token_gioc) {
     semctl(token_gioc, 0, SETALL, sem_arg);
     free(sem_arg.array);
 
-#if DEBUG
+    #if DEBUG
     testSemToken(token_gioc);
-#endif
+    #endif
 
     msg_new_band.ind = mc_id_band;
     msg_new_band.mtype = (long) getpid();
@@ -400,6 +452,19 @@ int checkPosBandiere(int riga, int colonna, int num_band) {
         if(calcDist(colonna, mc_bandiere[i].pos_band.x, riga, mc_bandiere[i].pos_band.y) < DIST_BAND) return TRUE;
 
     return FALSE;
+}
+
+int calcDist(int x1, int x2, int y1, int y2) {
+    int distanza, dif_riga, dif_col, dif_min, dif_max;
+
+    dif_riga = abs(y1 - y2);
+    dif_col = abs(x1 - x2);
+    
+    dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
+    dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
+    distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
+
+    return distanza;
 }
 
 void initRisorse() {
