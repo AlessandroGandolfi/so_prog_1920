@@ -38,7 +38,7 @@ pedina:
 
 void checkMode(int, char *);
 void initRisorse();
-int initGiocatori();
+int initGiocatori(char *);
 void initSemScacchiera();
 void somebodyTookMaShmget(int);
 void stampaScacchiera();
@@ -73,11 +73,11 @@ int main(int argc, char **argv) {
     if(DEBUG) printf("master: fine init scacchiera\n");
 
     /* creazione giocatori, valorizzazione pids_giocatori */
-    token_gioc = initGiocatori();
+    token_gioc = initGiocatori(argv[1]);
 
     /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
     if(DEBUG) printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
-    /* msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0); */
+    msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 
     if(DEBUG) printf("master: val msg ricevuto %d\n", msg.fine_piaz);
@@ -258,9 +258,9 @@ void stampaScacchiera() {
         printf("Punteggio giocatore %d: %d; %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
 }
 
-int initGiocatori() {
+int initGiocatori(char *mode) {
     int i, token_gioc;
-    char *param_giocatori[6];
+    char *param_giocatori[8];
     char tmp_params[5][sizeof(char *)];
     semun sem_arg;
 
@@ -275,7 +275,9 @@ int initGiocatori() {
     TEST_ERROR;
 
     /* 
-    parametri a giocatore 
+    parametri a giocatore
+    - path relativo file giocatore (per id processo htop)
+    - difficoltá gioco (per config)
     - id token
     - indice token squadra
     - id mc sem scacchiera, array id set semafori
@@ -285,15 +287,17 @@ int initGiocatori() {
     */
 
     /* aggiungere mode */
+    param_giocatori[0] = "./giocatore";
+    param_giocatori[1] = mode;
     sprintf(tmp_params[0], "%d", token_gioc);
-    param_giocatori[0] = tmp_params[0];
+    param_giocatori[2] = tmp_params[0];
     sprintf(tmp_params[2], "%d", mc_id_sem);
-    param_giocatori[2] = tmp_params[2];
+    param_giocatori[4] = tmp_params[2];
     sprintf(tmp_params[4], "%d", msg_id_coda);
-    param_giocatori[4] = tmp_params[4];
+    param_giocatori[6] = tmp_params[4];
     sprintf(tmp_params[5], "%d", mc_id_scac);
-    param_giocatori[5] = tmp_params[5];
-    param_giocatori[6] = NULL;
+    param_giocatori[7] = tmp_params[5];
+    param_giocatori[8] = NULL;
 
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].punteggio = 0;
@@ -304,11 +308,11 @@ int initGiocatori() {
 
         /* posizione token giocatore */
         sprintf(tmp_params[1], "%d", i);
-        param_giocatori[1] = tmp_params[1];
+        param_giocatori[3] = tmp_params[1];
         
         /* passaggio id mc di squadra come parametro a giocatori */
         sprintf(tmp_params[3], "%d", giocatori[i].mc_id_squadra);
-        param_giocatori[3] = tmp_params[3];
+        param_giocatori[5] = tmp_params[3];
 
         giocatori[i].pid = fork();
         TEST_ERROR;
@@ -413,8 +417,9 @@ int checkPosBandiere(int riga, int colonna, int num_band) {
     ciclo su array fino a quando non trovo band con coord -1, -1 (da lí in poi non ancora piazzate) 
     o se ne trovo una giá piazzata troppo vicina 
     */
-    for(i = 0; i < num_band, mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1; i++)
-        if(calcDist(colonna, mc_bandiere[i].pos_band.x, riga, mc_bandiere[i].pos_band.y) < DIST_BAND) return TRUE;
+    for(i = 0; i < num_band && (mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1); i++)
+        if(calcDist(colonna, mc_bandiere[i].pos_band.x, riga, mc_bandiere[i].pos_band.y) < DIST_BAND) 
+            return TRUE;
 
     return FALSE;
 }
