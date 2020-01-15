@@ -116,11 +116,9 @@ void checkMode(int argc, char *mode) {
 void getConfig(char *mode) {
     FILE *fs;
     char *config_file;
-    char config_value[sizeof(int)];
 
-    // config_file = (char *) malloc(sizeof(char));
-    config_file = "./config/";
-
+    config_file = (char *) malloc(sizeof(char));
+    strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
     
@@ -129,48 +127,17 @@ void getConfig(char *mode) {
     fs = fopen(config_file, "r");
 
     if(fs) {
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_NUM_G = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_NUM_P = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_MAX_TIME = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_BASE = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_ALTEZZA = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_FLAG_MIN = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_FLAG_MAX = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_ROUND_SCORE = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_N_MOVES = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_MIN_HOLD_NSEC = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        DIST_PED_GIOC = atoi(config_value);
+        fscanf(fs, "%d%*[^\n]", &SO_NUM_G);
+        fscanf(fs, "%d%*[^\n]", &SO_NUM_P);
+        fscanf(fs, "%d%*[^\n]", &SO_MAX_TIME);
+        fscanf(fs, "%d%*[^\n]", &SO_BASE);
+        fscanf(fs, "%d%*[^\n]", &SO_ALTEZZA);
+        fscanf(fs, "%d%*[^\n]", &SO_FLAG_MIN);
+        fscanf(fs, "%d%*[^\n]", &SO_FLAG_MAX);
+        fscanf(fs, "%d%*[^\n]", &SO_ROUND_SCORE);
+        fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
+        fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
+        fscanf(fs, "%d%*[^\0]", &DIST_PED_GIOC);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
@@ -288,7 +255,7 @@ void stampaScacchiera() {
     if(ENABLE_COLORS) printf("\033[0m");
 
     for(i = 0; i < SO_NUM_G; i++) 
-        printf("Punteggio giocatore %d: %d, %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
+        printf("Punteggio giocatore %d: %d; %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
 }
 
 int initGiocatori() {
@@ -317,7 +284,7 @@ int initGiocatori() {
     - id coda msg
     */
 
-    // aggiungere mode
+    /* aggiungere mode */
     sprintf(tmp_params[0], "%d", token_gioc);
     param_giocatori[0] = tmp_params[0];
     sprintf(tmp_params[2], "%d", mc_id_sem);
@@ -369,8 +336,6 @@ void initBandiere(int token_gioc) {
 
     tot_punti_rim = SO_ROUND_SCORE;
     num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN + 1)) + SO_FLAG_MIN;
-
-    if(DEBUG) num_band = (SO_NUM_G == 2) ? 5 : 40;
 
     printf("%d bandiere piazzate\n", num_band);
 

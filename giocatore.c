@@ -35,8 +35,11 @@ int main(int argc, char **argv) {
     int status, i;
     int token_gioc, pos_token, mc_id_sem, mc_id_band, num_band;
 
+    printf("%d\n", SO_NUM_G);
     getConfig("easy");
     
+
+    printf("%d\n", SO_NUM_G);
     #if DEBUG
     testConfig();
     #endif
@@ -87,11 +90,9 @@ int main(int argc, char **argv) {
 void getConfig(char *mode) {
     FILE *fs;
     char *config_file;
-    char config_value[sizeof(int)];
 
-    // config_file = (char *) malloc(sizeof(char));
-    config_file = "./config/";
-
+    config_file = (char *) malloc(sizeof(char));
+    strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
     
@@ -100,48 +101,17 @@ void getConfig(char *mode) {
     fs = fopen(config_file, "r");
 
     if(fs) {
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_NUM_G = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_NUM_P = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_MAX_TIME = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_BASE = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_ALTEZZA = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_FLAG_MIN = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_FLAG_MAX = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_ROUND_SCORE = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_N_MOVES = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        SO_MIN_HOLD_NSEC = atoi(config_value);
-        strcpy(config_value, "");
-
-        fscanf(fs, "%s%*[^\n]", config_value);
-        DIST_PED_GIOC = atoi(config_value);
+        fscanf(fs, "%d%*[^\n]", &SO_NUM_G);
+        fscanf(fs, "%d%*[^\n]", &SO_NUM_P);
+        fscanf(fs, "%d%*[^\n]", &SO_MAX_TIME);
+        fscanf(fs, "%d%*[^\n]", &SO_BASE);
+        fscanf(fs, "%d%*[^\n]", &SO_ALTEZZA);
+        fscanf(fs, "%d%*[^\n]", &SO_FLAG_MIN);
+        fscanf(fs, "%d%*[^\n]", &SO_FLAG_MAX);
+        fscanf(fs, "%d%*[^\n]", &SO_ROUND_SCORE);
+        fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
+        fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
+        fscanf(fs, "%d%*[^\eof]", &DIST_PED_GIOC);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);

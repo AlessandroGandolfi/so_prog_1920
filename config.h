@@ -27,7 +27,7 @@ flag opzionali
 - DEBUG per stampare piú informazioni
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 1
+#define DEBUG 0
 #define ENABLE_COLORS 1
 
 #define TEST_ERROR  if(errno) {fprintf(stderr, \
