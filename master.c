@@ -65,30 +65,25 @@ int main(int argc, char **argv) {
     srand(time(NULL) + getpid());
 
     initRisorse();
-
-    if(DEBUG) printf("master: fine init risorse\n");
-
     initSemScacchiera();
-
-    if(DEBUG) printf("master: fine init scacchiera\n");
 
     /* creazione giocatori, valorizzazione pids_giocatori */
     token_gioc = initGiocatori(argv[1]);
 
     /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
-    if(DEBUG) printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
+    #if DEBUG
+    printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
+    #endif
     msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
-
-    if(DEBUG) printf("master: val msg ricevuto %d\n", msg.fine_piaz);
 
     /* creazione bandiere, valorizzazione array bandiere */
     initBandiere(token_gioc);
 
-    if(DEBUG) {
-        sleep(1);
-        stampaScacchiera();
-    }
+    #if DEBUG
+    sleep(1);
+    stampaScacchiera();
+    #endif
 
     /* attesa terminazione di tutti i giocatori */
     while(wait(&status) > 0);
@@ -122,7 +117,9 @@ void getConfig(char *mode) {
     strcat(config_file, mode);
     strcat(config_file, ".txt");
     
-    if(DEBUG) printf("path file conf: %s\n", config_file);
+    #if DEBUG
+    printf("path file conf: %s\n", config_file);
+    #endif
 
     fs = fopen(config_file, "r");
 
@@ -203,8 +200,6 @@ void stampaScacchiera() {
     int i, j;
     ped *mc_ped_squadra;
 
-    if(DEBUG) printf("master: inizio calcolo mosse rimanenti\n");
-
     /* mosse rimanenti */
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].tot_mosse_rim = 0;
@@ -220,39 +215,37 @@ void stampaScacchiera() {
         TEST_ERROR;
     }
 
-    if(DEBUG) printf("master: fine calcolo mosse rimanenti\n");
-
     /* stampa matrice caratteri */
     for(i = 0; i < (SO_ALTEZZA * SO_BASE); i++) {
-        if(ENABLE_COLORS) {
-            switch(mc_char_scac[i]) {
-                case '1':
-                    printf("\033[1;31m");
-                    break;
-                case '2':
-                    printf("\033[1;34m");
-                    break;
-                case '3':
-                    printf("\033[1;32m");
-                    break;
-                case '4':
-                    printf("\033[1;36m");
-                    break;
-                case 'B':
-                    printf("\033[0;33m");
-                    break;
-                default:
-                    printf("\033[0m");
-                    break;
-            }
+        #if ENABLE_COLORS
+        switch(mc_char_scac[i]) {
+            case '1':
+                printf("\033[1;31m");
+                break;
+            case '2':
+                printf("\033[1;34m");
+                break;
+            case '3':
+                printf("\033[1;32m");
+                break;
+            case '4':
+                printf("\033[1;36m");
+                break;
+            case 'B':
+                printf("\033[0;33m");
+                break;
+            default:
+                printf("\033[0m");
+                break;
         }
+        #endif
         printf("%c", mc_char_scac[i]);
         if(!((i + 1) % SO_BASE)) printf("\n");
     }
 
-    if(DEBUG) printf("master: fine stampa scacchiera\n");
-    
-    if(ENABLE_COLORS) printf("\033[0m");
+    #if ENABLE_COLORS
+    printf("\033[0m");
+    #endif
 
     for(i = 0; i < SO_NUM_G; i++) 
         printf("Punteggio giocatore %d: %d; %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
@@ -260,7 +253,7 @@ void stampaScacchiera() {
 
 int initGiocatori(char *mode) {
     int i, token_gioc;
-    char *param_giocatori[8];
+    char *param_giocatori[9];
     char tmp_params[5][sizeof(char *)];
     semun sem_arg;
 
@@ -276,17 +269,15 @@ int initGiocatori(char *mode) {
 
     /* 
     parametri a giocatore
-    - path relativo file giocatore (per id processo htop)
-    - difficoltá gioco (per config)
-    - id token
-    - indice token squadra
-    - id mc sem scacchiera, array id set semafori
-    - id mc squadra, array pedine
-    - id mc char scacchiera
-    - id coda msg
+    0 - path relativo file giocatore (per nome processo)
+    1 - difficoltá gioco (per config)
+    2 - id token
+    3 - indice token squadra
+    4 - id mc sem scacchiera, array id set semafori
+    5 - id mc squadra, array pedine
+    6 - id mc char scacchiera
+    7 - id coda msg
     */
-
-    /* aggiungere mode */
     param_giocatori[0] = "./giocatore";
     param_giocatori[1] = mode;
     sprintf(tmp_params[0], "%d", token_gioc);
@@ -328,7 +319,9 @@ int initGiocatori(char *mode) {
         }
     }
 
-    if(DEBUG) printf("master: fine creazione giocatori\n");
+    #if DEBUG
+    printf("master: fine creazione giocatori\n");
+    #endif
 
     return token_gioc;
 }

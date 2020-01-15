@@ -1,7 +1,7 @@
 cflags = -std=c89 -pedantic
 mode ?= ""
 
-debug: clean master giocatore run
+debug: clean master giocatore pedina run
 
 buildall: clean master giocatore pedina
 
