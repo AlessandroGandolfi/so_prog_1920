@@ -15,42 +15,10 @@
 #include <sys/stat.h>
 #include <sys/sem.h>
 #include <math.h>
+#include <dirent.h>
 
-#ifndef EASY
-#ifndef HARD
-#define EASY /* default facile */
-#endif
-#endif
-
-#ifdef EASY
-#define SO_NUM_G 2
-#define SO_NUM_P 10
-#define SO_MAX_TIME 3
-#define SO_BASE 60
-#define SO_ALTEZZA 20
-#define SO_FLAG_MIN 5
-#define SO_FLAG_MAX 5
-#define SO_ROUND_SCORE 10
-#define SO_N_MOVES 20
-#define SO_MIN_HOLD_NSEC 100000000
-
-#define DIST_PED_GIOC 8 /* < 10 */
-#else
-#ifdef HARD
-#define SO_NUM_G 4
-#define SO_NUM_P 400
-#define SO_MAX_TIME 1
-#define SO_BASE 120
-#define SO_ALTEZZA 40
-#define SO_FLAG_MIN 5
-#define SO_FLAG_MAX 40
-#define SO_ROUND_SCORE 200
-#define SO_N_MOVES 200
-#define SO_MIN_HOLD_NSEC 100000000
-
-#define DIST_PED_GIOC 2 /* < 3 */
-#endif
-#endif
+#define TRUE 1
+#define FALSE 0
 
 #define DIST_BAND 8 /* < 10 */
 
@@ -126,15 +94,22 @@ typedef struct _msg_piaz {
     int fine_piaz;
 } msg_fine_piaz;
 
-int calcDist(int x1, int x2, int y1, int y2) {
-    int distanza, dif_riga, dif_col, dif_min, dif_max;
+int SO_NUM_G;
+int SO_NUM_P;
+int SO_MAX_TIME;
+int SO_BASE;
+int SO_ALTEZZA;
+int SO_FLAG_MIN;
+int SO_FLAG_MAX;
+int SO_ROUND_SCORE;
+int SO_N_MOVES;
+int SO_MIN_HOLD_NSEC;
+int DIST_PED_GIOC;
 
-    dif_riga = abs(y1 - y2);
-    dif_col = abs(x1 - x2);
-    
-    dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
-    dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
-    distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
+int calcDist(int, int, int, int);
+void getConfig(char *);
 
-    return distanza;
-}
+#if DEBUG
+void testSemToken(int);
+void testConfig();
+#endif

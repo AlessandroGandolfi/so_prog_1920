@@ -1,18 +1,23 @@
-CFLAGS = -std=c89 -pedantic
+cflags = -std=c89 -pedantic
+mode ?= ""
 
-all: clean master giocatore pedina
+debug: clean master giocatore pedina run
+
+buildall: clean master giocatore pedina
 
 clean:
 	rm -f *o master giocatore pedina *~
 
 master: master.c config.h Makefile
-	gcc $(CFLAGS) master.c -o master -D$(MODE)
+	gcc $(cflags) master.c -o master
 
 giocatore: giocatore.c config.h Makefile
-	gcc $(CFLAGS) giocatore.c -o giocatore -D$(MODE)
+	gcc $(cflags) giocatore.c -o giocatore
 
 pedina: pedina.c config.h Makefile
-	gcc $(CFLAGS) pedina.c -o pedina -D$(MODE)
+	gcc $(CFLAGS) pedina.c -o pedina
 
-run: all
-	./master
+all: buildall run
+
+run:
+	./master $(mode)
