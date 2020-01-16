@@ -275,8 +275,8 @@ int initGiocatori(char *mode) {
     3 - indice token squadra
     4 - id mc sem scacchiera, array id set semafori
     5 - id mc squadra, array pedine
-    6 - id mc char scacchiera
-    7 - id coda msg
+    6 - id coda msg
+    7 - id mc char scacchiera
     */
     param_giocatori[0] = "./giocatore";
     param_giocatori[1] = mode;

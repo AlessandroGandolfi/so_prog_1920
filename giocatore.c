@@ -30,8 +30,8 @@ parametri a giocatore
 3 - indice token squadra
 4 - id mc sem scacchiera, array id set semafori
 5 - id mc squadra, array pedine
-6 - id mc char scacchiera
-7 - id coda msg
+6 - id coda msg
+7 - id mc char scacchiera
 */
 int main(int argc, char **argv) {
     int status, i;
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     #endif
 
     srand(time(NULL) + getpid());
-    
+
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
     mc_id_sem = atoi(argv[4]);
@@ -55,8 +55,7 @@ int main(int argc, char **argv) {
     /* collegamento a mem cond */
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     TEST_ERROR;
-    
-    // esplode a causa di questo
+
     mc_sem_scac = (int *) shmat(mc_id_sem, NULL, 0);
     TEST_ERROR;
 
@@ -166,7 +165,7 @@ void initPedine(int token_gioc, int pos_token, int mc_id_sem, char *mode) {
         semop(token_gioc, &sops, 1);
 
         #if DEBUG
-        printf("gioc %d: ped: %d piazzata\n", pos_token, i);
+        printf("gioc %d: ped %d piazzata\n", pos_token, i);
         #endif
 
         piazzaPedina(i, pos_token);
