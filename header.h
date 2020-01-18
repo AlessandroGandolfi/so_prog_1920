@@ -20,8 +20,6 @@
 #define TRUE 1
 #define FALSE 0
 
-#define DIST_BAND 8 /* < 10 */
-
 /* 
 flag opzionali 
 - DEBUG per stampare piú informazioni
@@ -29,6 +27,8 @@ flag opzionali
 */
 #define DEBUG 1
 #define ENABLE_COLORS 1
+
+#define INDEX(coord) (coord.y * SO_BASE) + coord.x
 
 #define TEST_ERROR  if(errno) {fprintf(stderr, \
                     "%s:%d: PID=%5d: Error %d (%s)\n",\
@@ -104,9 +104,10 @@ int SO_FLAG_MAX;
 int SO_ROUND_SCORE;
 int SO_N_MOVES;
 int SO_MIN_HOLD_NSEC;
-int DIST_PED_GIOC;
+int DIST_PED;
+int DIST_BAND;
 
-int calcDist(int, int, int, int);
+int calcDist(coord, coord);
 void getConfig(char *);
 
 #if DEBUG

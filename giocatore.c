@@ -9,45 +9,40 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
         se nemico puó far continuare avanzamento delle pedine
         se propria pedina assegna nuovo obiettivo
 */
-#include "config.h"
+#include "header.h"
 
-void initPedine(int, int, int, char *);
+void initPedine(int, int, char *);
 void piazzaPedina(int, int);
-int checkPosPedine(int, int);
+int checkPosPedine(coord);
 void initObiettivi(int);
 
 /* globali */
 ped *mc_ped_squadra;
-int *mc_sem_scac;
-int mc_id_squadra, msg_id_coda, mc_id_scac;
 char *mc_char_scac;
+int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
 
 /* 
 parametri a giocatore
-0 - path relativo file giocatore (per nome processo)
+0 - path relativo file giocatore
 1 - difficoltá gioco (per config)
 2 - id token
 3 - indice token squadra
-4 - id mc sem scacchiera, array id set semafori
+4 - id sem scacchiera
 5 - id mc squadra, array pedine
 6 - id coda msg
 7 - id mc char scacchiera
 */
 int main(int argc, char **argv) {
     int status, i;
-    int token_gioc, pos_token, mc_id_sem, mc_id_band, num_band;
+    int token_gioc, pos_token, mc_id_band, num_band;
 
     getConfig(argv[1]);
-    
-    #if DEBUG
-    testConfig();
-    #endif
 
     srand(time(NULL) + getpid());
 
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
-    mc_id_sem = atoi(argv[4]);
+    sem_id_scac = atoi(argv[4]);
     mc_id_squadra = atoi(argv[5]);
     msg_id_coda = atoi(argv[6]);
     mc_id_scac = atoi(argv[7]);
@@ -56,14 +51,11 @@ int main(int argc, char **argv) {
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     TEST_ERROR;
 
-    mc_sem_scac = (int *) shmat(mc_id_sem, NULL, 0);
-    TEST_ERROR;
-
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
     TEST_ERROR;
 
     /* creazione pedine, valorizzazione pids_pedine */
-    initPedine(token_gioc, pos_token, mc_id_sem, argv[1]);
+    initPedine(token_gioc, pos_token, argv[1]);
 
     /* assegnazione obiettivi */
     initObiettivi(msg_id_coda);
@@ -79,15 +71,17 @@ int main(int argc, char **argv) {
     shmdt(mc_char_scac);
     TEST_ERROR;
 
-    shmdt(mc_sem_scac);
-    TEST_ERROR;
-
     shmdt(mc_ped_squadra);
     TEST_ERROR;
 
     exit(EXIT_SUCCESS);
 }
 
+/* 
+valorizzazione globali da file secondo modalitá
+param: 
+- modalitá selezionata
+*/
 void getConfig(char *mode) {
     FILE *fs;
     char *config_file;
@@ -96,6 +90,10 @@ void getConfig(char *mode) {
     strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
+    
+    #if DEBUG
+    printf("path file conf: %s\n", config_file);
+    #endif
 
     fs = fopen(config_file, "r");
 
@@ -110,7 +108,8 @@ void getConfig(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_ROUND_SCORE);
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
-        fscanf(fs, "%d%*[^\0]", &DIST_PED_GIOC);
+        fscanf(fs, "%d%*[^\n]", &DIST_PED);
+        fscanf(fs, "%d%*[^\0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
@@ -119,7 +118,14 @@ void getConfig(char *mode) {
     fclose(fs);
 }
 
-void initPedine(int token_gioc, int pos_token, int mc_id_sem, char *mode) {
+/*
+creazione e posizionamento pedine, sincronizzazione con token
+param:
+- id token sem
+- posizione token squadra
+- modalitá selezionata
+*/
+void initPedine(int token_gioc, int pos_token, char *mode) {
     int i;
     char *param_pedine[8];
     char tmp_params[5][sizeof(char *)];
@@ -131,7 +137,7 @@ void initPedine(int token_gioc, int pos_token, int mc_id_sem, char *mode) {
 
     /* 
     parametri a pedine
-    0 - path relativo file pedina (per nome processo)
+    0 - path relativo file pedina
     1 - difficoltá gioco (per config)
     2 - id token
     3 - indice token squadra
@@ -145,7 +151,7 @@ void initPedine(int token_gioc, int pos_token, int mc_id_sem, char *mode) {
     param_pedine[2] = tmp_params[0];
     sprintf(tmp_params[1], "%d", pos_token);
     param_pedine[3] = tmp_params[1];
-    sprintf(tmp_params[2], "%d", mc_id_sem);
+    sprintf(tmp_params[2], "%d", sem_id_scac);
     param_pedine[4] = tmp_params[2];
     sprintf(tmp_params[3], "%d", mc_id_squadra);
     param_pedine[5] = tmp_params[3];
@@ -188,6 +194,7 @@ void initPedine(int token_gioc, int pos_token, int mc_id_sem, char *mode) {
             sops.sem_op = 1;
             sops.sem_flg = 0;
             semop(token_gioc, &sops, 1);
+            TEST_ERROR;
         }
 
         /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
@@ -209,8 +216,14 @@ void initPedine(int token_gioc, int pos_token, int mc_id_sem, char *mode) {
     }
 }
 
+/*
+piazzamento nuove bandiere e distribuzione loro punteggio
+param:
+- numero identificativo pedina di array
+- posizione id token giocatori/squadra
+*/
 void piazzaPedina(int ind_pedine, int pos_token) {
-    int riga, colonna;
+    coord casella;
     struct sembuf sops;
     
     /* 
@@ -218,26 +231,32 @@ void piazzaPedina(int ind_pedine, int pos_token) {
     una cella libera senza altre pedine "troppo vicine" 
     */
     do {
-        do {
-            riga = rand() % SO_ALTEZZA;
-            colonna = rand() % SO_BASE;
-        } while(checkPosPedine(riga, colonna));
+        casella.y = rand() % SO_ALTEZZA;
+        casella.x = rand() % SO_BASE;
+    } while(!checkPosPedine(casella));
 
-        sops.sem_num = colonna;
-        sops.sem_op = -1;
-        sops.sem_flg = IPC_NOWAIT;
-    } while(semop(mc_sem_scac[riga], &sops, 1) == -1);
+    sops.sem_num = INDEX(casella);
+    sops.sem_op = -1;
+    sops.sem_flg = 0;
+    semop(sem_id_scac, &sops, 1);
+    TEST_ERROR;
 
     /* valorizzazione array ped in mc */
     mc_ped_squadra[ind_pedine].mosse_rim = SO_N_MOVES;
-    mc_ped_squadra[ind_pedine].pos_attuale.x = colonna;
-    mc_ped_squadra[ind_pedine].pos_attuale.y = riga;
+    mc_ped_squadra[ind_pedine].pos_attuale = casella;
 
     /* piazzamento pedine su char scacchiera */
-    mc_char_scac[(riga * SO_BASE) + colonna] = (pos_token + 1) + '0';
+    mc_char_scac[INDEX(casella)] = (pos_token + 1) + '0';
 }
 
-int checkPosPedine(int riga, int colonna) {
+/*
+controlli per piazzamento nuova pedina su posizione delle 
+pedine giá piazzate e su cella libera
+TRUE se supera controlli, FALSE altrimenti
+param:
+- coordinate generate
+*/
+int checkPosPedine(coord casella) {
     int i;
 
     /* 
@@ -245,25 +264,40 @@ int checkPosPedine(int riga, int colonna) {
     o se ne trovo una giá piazzata troppo vicina 
     */
     for(i = 0; i < SO_NUM_P && (mc_ped_squadra[i].pos_attuale.x != -1 && mc_ped_squadra[i].pos_attuale.y != -1); i++)
-        if(calcDist(colonna, mc_ped_squadra[i].pos_attuale.x, riga, mc_ped_squadra[i].pos_attuale.y) < DIST_PED_GIOC) 
-            return TRUE;
+        if(calcDist(casella, mc_ped_squadra[i].pos_attuale) < DIST_PED
+            || mc_char_scac[INDEX(casella)] != '0') 
+            return FALSE;
 
-    return FALSE;
+    return TRUE;
 }
 
-int calcDist(int x1, int x2, int y1, int y2) {
+/*
+calcolo della distanza tra 2 caselle della scacchiera
+param:
+- coord prima casella
+- coord seconda casella
+*/
+int calcDist(coord cas1, coord cas2) {
     int distanza, dif_riga, dif_col, dif_min, dif_max;
 
-    dif_riga = abs(y1 - y2);
-    dif_col = abs(x1 - x2);
+    /* differenza riga e colonna caselle */
+    dif_riga = abs(cas1.y - cas2.y);
+    dif_col = abs(cas1.x - cas2.x);
     
     dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
     dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
+
+    /* 
+    distanza finale = sqrt(2) * passi diagonali + passi "rettilinei"
+    passi in diagonale = dif_min
+    passi "rettilinei" = (dif_max - dif_min) 
+    */
     distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
 
     return distanza;
 }
 
+/* TODO */
 void initObiettivi(int msg_id_coda) {
     msg_band msg;
 
@@ -273,19 +307,6 @@ void initObiettivi(int msg_id_coda) {
 }
 
 #if DEBUG
-void testSemToken(int token_gioc) {
-    unsigned short *val_array;
-    int i;
-
-    val_array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
-
-    semctl(token_gioc, 0, GETALL, val_array);
-
-    for(i = 0; i < SO_NUM_G; i++) {
-        printf("master: token gioc %d settato a %hu\n", (i + 1), val_array[i]);
-    }
-}
-
 void testConfig() {
     if(SO_NUM_G)
         printf("gioc: valori configurazione correttamente estratti\n");

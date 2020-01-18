@@ -8,13 +8,13 @@ buildall: clean master giocatore pedina
 clean:
 	rm -f *o master giocatore pedina *~
 
-master: master.c config.h Makefile
+master: master.c header.h Makefile
 	gcc $(cflags) master.c -o master
 
-giocatore: giocatore.c config.h Makefile
+giocatore: giocatore.c header.h Makefile
 	gcc $(cflags) giocatore.c -o giocatore
 
-pedina: pedina.c config.h Makefile
+pedina: pedina.c header.h Makefile
 	gcc $(CFLAGS) pedina.c -o pedina
 
 all: buildall run

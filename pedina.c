@@ -19,35 +19,27 @@ se la pedina finisce su una bandierina non obiettivo si ferma su di essa se
 se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 */
 
-#include "config.h"
+#include "header.h"
 
 /* 
 parametri a pedine
-0 - path relativo file pedina (per nome processo)
+0 - path relativo file pedina
 1 - difficoltá gioco (per config)
 2 - id token
 3 - indice token squadra
-4 - id mc scacchiera, array id set semafori
+4 - id sem scacchiera
 5 - id mc squadra, array pedine
 6 - indice identificativo pedina dell'array in mc squadra
 */
 int main(int argc, char **argv) {
-    int mc_id_sem;
-    int *mc_sem_scac;
+    int sem_id_scac;
     struct timespec arg_sleep;
 
-    mc_id_sem = atoi(argv[4]);
-    
-    /* setup scacchiera */
-    mc_sem_scac = (int *) shmat(mc_id_sem, NULL, SHM_RDONLY);
-    TEST_ERROR;
-    
+    sem_id_scac = atoi(argv[4]);
+
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
     nanosleep(&arg_sleep, NULL);
-
-    shmdt(mc_sem_scac);
-    TEST_ERROR;
 
     exit(EXIT_SUCCESS);
 }
