@@ -14,11 +14,12 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 void initPedine(int, int, char *);
 void piazzaPedina(int, int);
 int checkPosPedine(coord);
-void initObiettivi(int);
+void initObiettivi(int, int);
 
 /* globali */
 ped *mc_ped_squadra;
 char *mc_char_scac;
+band *mc_bandiere;
 int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
 
 /* 
@@ -58,7 +59,7 @@ int main(int argc, char **argv) {
     initPedine(token_gioc, pos_token, argv[1]);
 
     /* assegnazione obiettivi */
-    initObiettivi(msg_id_coda);
+    initObiettivi(msg_id_coda, pos_token);
 
     #if DEBUG
     printf("gioc %d: messaggio fine band ricevuto\n", pos_token);
@@ -298,12 +299,31 @@ int calcDist(coord cas1, coord cas2) {
 }
 
 /* TODO */
-void initObiettivi(int msg_id_coda) {
+void initObiettivi(int msg_id_coda, int pos_token) {
     msg_band msg;
+    int i, riga, col, num_band, range_controllo;
+    coord casella;
 
     /* ricezione messaggio con id di mc con bandiere */
     msgrcv(msg_id_coda, &msg, sizeof(msg_band) - sizeof(long), (long) getppid(), 0);
     TEST_ERROR;
+
+    mc_bandiere = (band *) shmat(msg.ind, NULL, 0);
+
+    num_band = sizeof(mc_bandiere) / sizeof(mc_bandiere[0]);
+
+    for(i = 0; i < num_band; i++) {
+        range_controllo = 1;
+        do {
+            casella = mc_bandiere[i].pos_band;
+            casella.x -= range_controllo;
+            casella.y -= range_controllo;
+            range_controllo++;
+        } while((casella.x >= 0 && casella.y >= 0) || mc_char_scac[INDEX(casella)] == '0');
+
+    }
+
+    shmdt(mc_bandiere);
 }
 
 #if DEBUG

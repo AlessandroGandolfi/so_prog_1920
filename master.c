@@ -164,7 +164,7 @@ void initRisorse() {
     /* creazione e collegamento a mc scacchiera */ 
     mc_id_scac = shmget(IPC_PRIVATE, sizeof(char) * SO_ALTEZZA * SO_BASE, S_IRUSR | S_IWUSR);
     TEST_ERROR;
-    mc_char_scac = shmat(mc_id_scac, NULL, 0);
+    mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
     TEST_ERROR;
     /* scacchiera tutta a 0, caratteri sovrascritti da semafori e pedine in futuro */
     memset(mc_char_scac, '0', sizeof(char) * SO_ALTEZZA * SO_BASE);
