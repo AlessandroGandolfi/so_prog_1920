@@ -15,7 +15,7 @@ void initPedine(int, int, char *);
 void piazzaPedina(int, int);
 int checkPosPedine(coord);
 void initObiettivi(int, int);
-void assegnaObiettivo(coord, int);
+int assegnaObiettivo(coord, int);
 
 /* globali */
 ped *mc_ped_squadra;
@@ -159,6 +159,7 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
     for(i = 0; i < SO_NUM_P; i++) {
         mc_ped_squadra[i].pos_attuale.x = -1; 
         mc_ped_squadra[i].pos_attuale.y = -1;
+        mc_ped_squadra[i].obiettivo = -1;
     }
 
     for(i = 0; i < SO_NUM_P; i++) {
@@ -169,7 +170,7 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
         semop(token_gioc, &sops, 1);
 
         #if DEBUG
-        printf("gioc %d: ped %d piazzata\n", pos_token, i);
+        /* printf("gioc %d: ped %d piazzata\n", pos_token, i); */
         #endif
 
         piazzaPedina(i, pos_token);
@@ -185,7 +186,7 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
             TEST_ERROR;
 
             #if DEBUG
-            /*printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", pos_token, (long) getpid(), i, msg_id_coda);*/
+            printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", pos_token, (long) getpid(), i, msg_id_coda);
             #endif
         } else {
             sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
@@ -306,66 +307,89 @@ void initObiettivi(int msg_id_coda, int pos_token) {
     TEST_ERROR;
 
     #if DEBUG
-    printf("gioc %d: messaggio fine band ricevuto\n", pos_token);
+    printf("gioc %d: messaggio fine band ricevuto\n", (pos_token + 1));
     #endif
 
     mc_bandiere = (band *) shmat(msg.ind, NULL, 0);
 
-    num_band = sizeof(mc_bandiere) / sizeof(mc_bandiere[0]);
-
-    for(i = 0; i < num_band; i++) {
+    for(i = 0; i < msg.num_band; i++) {
         ped_sq = FALSE;
         ped_nem = FALSE;
         range_scan = 0;
         do {
             range_scan++;
+            /* scan riga da -range a +range */
             for(riga = (range_scan * -1); riga <= range_scan; riga++) {
                 check.y = mc_bandiere[i].pos_band.y;
                 check.y += riga;
                 if(check.y >= 0 && check.y < SO_ALTEZZA) {
+                    /* scan da sx a centro */
                     check.x = mc_bandiere[i].pos_band.x;
                     check.x -= (range_scan - abs(riga));
                     if(check.x >= 0) {
-                        if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
-                            assegnaObiettivo(check, i);
-                            ped_sq = TRUE;
-                        } else if(mc_char_scac[INDEX(check)] != ((pos_token + 1) + '0') && mc_char_scac[INDEX(check)] != 'B')
+                        if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0'))
+                            ped_sq = assegnaObiettivo(check, i);
+                        else if(mc_char_scac[INDEX(check)] != 'B' 
+                            && mc_char_scac[INDEX(check)] != '0'
+                            #if DEBUG
+                            && mc_char_scac[INDEX(check)] != '*'
+                            #endif
+                            )
                             ped_nem = TRUE;
+
+                        #if DEBUG
+                        if(mc_char_scac[INDEX(check)] == '0') 
+                            mc_char_scac[INDEX(check)] = '*';
+                        #endif
                     }
+                    /* da dopo centro a dx */
                     check.x +=  2 * (range_scan - abs(riga));
-                    if(check.x < SO_BASE) {
-                        if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
-                            assegnaObiettivo(check, i);
-                            ped_sq = TRUE;
-                        } else if(mc_char_scac[INDEX(check)] != ((pos_token + 1) + '0') && mc_char_scac[INDEX(check)] != 'B')
+                    if(check.x < SO_BASE && (range_scan - abs(riga)) > 0) {
+                        if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0'))
+                            ped_sq = assegnaObiettivo(check, i);
+                        else if(mc_char_scac[INDEX(check)] != 'B' 
+                        && mc_char_scac[INDEX(check)] != '0'
+                        #if DEBUG
+                        && mc_char_scac[INDEX(check)] != '*'
+                        #endif
+                        )
                             ped_nem = TRUE;
+
+                        #if DEBUG
+                        if(mc_char_scac[INDEX(check)] == '0') 
+                            mc_char_scac[INDEX(check)] = '*';
+                        #endif
                     }
                 }
             }
-        } while(((!(ped_nem) && ped_sq)) || (ped_nem && ped_sq) || (ped_nem && !(ped_sq)));
+        } while(!ped_sq && !ped_nem);
     }
-
-    shmdt(mc_bandiere);
 
     #if DEBUG
     for(i = 0; i < SO_NUM_P; i++) {
-        printf("gioc: %d, ped %d %d ha obiettivo band %d %d"
-            , (pos_token + 1)
-            , mc_ped_squadra[i].pos_attuale.y
-            , mc_ped_squadra[i].pos_attuale.x
-            , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.y
-            , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.x);
+        if(mc_ped_squadra[i].obiettivo != -1)
+            printf("gioc %d: band %d %d\n"
+                , (pos_token + 1)
+                , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.y
+                , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.x);
     }
     #endif
+
+    shmdt(mc_bandiere);
 }
 
-void assegnaObiettivo(coord pos_ped_sq, int ind_band) {
+int assegnaObiettivo(coord pos_ped_sq, int ind_band) {
     int i;
 
     i = 0;
 
     while(calcDist(mc_ped_squadra[i].pos_attuale, pos_ped_sq)) i++;
+
+    if(mc_ped_squadra[i].obiettivo != -1) return FALSE;
+
     mc_ped_squadra[i].obiettivo = ind_band;
+
+    return TRUE;
 }
 
 #if DEBUG

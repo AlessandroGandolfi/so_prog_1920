@@ -79,6 +79,7 @@ typedef struct _giocatore {
 typedef struct _msg_band {
     long mtype;
     int ind;
+    int num_band;
 } msg_band;
 
 /* messaggio usato per segnalare bisogno nuovo obiettivo */

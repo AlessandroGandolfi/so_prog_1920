@@ -441,6 +441,7 @@ void initBandiere(int token_gioc) {
     testSemToken(token_gioc);
     #endif
 
+    msg_new_band.num_band = num_band;
     msg_new_band.ind = mc_id_band;
     msg_new_band.mtype = (long) getpid();
     /* manda un messaggio per giocatore */
