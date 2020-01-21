@@ -409,7 +409,7 @@ void initBandiere(int token_gioc) {
 
         /* valorizzazione mc bandiere */
         mc_bandiere[i].pos_band = casella;
-        mc_bandiere[i].presa = 0;
+        mc_bandiere[i].presa = FALSE;
         /* 
         una bandiera vale al massimo la metá dei punti rimanenti 
         da distribuire a meno che non sia l'ultima da piazzare 

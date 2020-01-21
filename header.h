@@ -62,7 +62,7 @@ typedef struct _bandierina {
 } band;
 
 typedef struct _pedina {
-    band obiettivo;
+    int obiettivo;
     coord pos_attuale;
     coord *percorso;
     int mosse_rim;

@@ -15,6 +15,7 @@ void initPedine(int, int, char *);
 void piazzaPedina(int, int);
 int checkPosPedine(coord);
 void initObiettivi(int, int);
+void assegnaObiettivo(coord, int);
 
 /* globali */
 ped *mc_ped_squadra;
@@ -301,8 +302,8 @@ int calcDist(coord cas1, coord cas2) {
 /* TODO */
 void initObiettivi(int msg_id_coda, int pos_token) {
     msg_band msg;
-    int i, riga, col, num_band, range_controllo;
-    coord casella;
+    int i, num_band, riga, range_scan, ped_sq, ped_nem;
+    coord check;
 
     /* ricezione messaggio con id di mc con bandiere */
     msgrcv(msg_id_coda, &msg, sizeof(msg_band) - sizeof(long), (long) getppid(), 0);
@@ -313,17 +314,48 @@ void initObiettivi(int msg_id_coda, int pos_token) {
     num_band = sizeof(mc_bandiere) / sizeof(mc_bandiere[0]);
 
     for(i = 0; i < num_band; i++) {
-        range_controllo = 1;
+        ped_sq = FALSE;
+        ped_nem = FALSE;
+        range_scan = 0;
         do {
-            casella = mc_bandiere[i].pos_band;
-            casella.x -= range_controllo;
-            casella.y -= range_controllo;
-            range_controllo++;
-        } while((casella.x >= 0 && casella.y >= 0) || mc_char_scac[INDEX(casella)] == '0');
-
+            range_scan++;
+            for(riga = (range_scan * -1); riga <= range_scan; riga++) {
+                check.y = mc_bandiere[i].pos_band.y;
+                check.y += riga;
+                if(check.y >= 0 && check.y < SO_ALTEZZA) {
+                    check.x = mc_bandiere[i].pos_band.x;
+                    check.x -= (range_scan - abs(riga));
+                    if(check.x >= 0) {
+                        if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
+                            assegnaObiettivo(check, i);
+                            ped_sq = TRUE;
+                        } else if(mc_char_scac[INDEX(check)] != ((pos_token + 1) + '0') && mc_char_scac[INDEX(check)] != 'B')
+                            ped_nem = TRUE;
+                    }
+                    check.x +=  2 * (range_scan - abs(riga));
+                    if(check.x < SO_BASE) {
+                        if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
+                            assegnaObiettivo(check, i);
+                            ped_sq = TRUE;
+                        } else if(mc_char_scac[INDEX(check)] != ((pos_token + 1) + '0') && mc_char_scac[INDEX(check)] != 'B')
+                            ped_nem = TRUE;
+                    }
+                }
+            }
+        } while(((!(ped_nem) && ped_sq)) || (ped_nem && ped_sq) || (ped_nem && !(ped_sq)));
     }
 
     shmdt(mc_bandiere);
+}
+
+void assegnaObiettivo(coord pos_ped_sq, int ind_band) {
+    int i;
+    
+    i = 0;
+    
+    while(calcDist(mc_ped_squadra[i].pos_attuale, pos_ped_sq)) i++;
+
+    mc_ped_squadra[i].obiettivo = ind_band;
 }
 
 #if DEBUG
