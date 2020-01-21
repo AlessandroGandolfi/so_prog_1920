@@ -62,10 +62,6 @@ int main(int argc, char **argv) {
     /* assegnazione obiettivi */
     initObiettivi(msg_id_coda, pos_token);
 
-    #if DEBUG
-    printf("gioc %d: messaggio fine band ricevuto\n", pos_token);
-    #endif
-
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
     TEST_ERROR;
@@ -189,7 +185,7 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
             TEST_ERROR;
 
             #if DEBUG
-            printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", pos_token, (long) getpid(), i, msg_id_coda);
+            /*printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", pos_token, (long) getpid(), i, msg_id_coda);*/
             #endif
         } else {
             sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
@@ -309,6 +305,10 @@ void initObiettivi(int msg_id_coda, int pos_token) {
     msgrcv(msg_id_coda, &msg, sizeof(msg_band) - sizeof(long), (long) getppid(), 0);
     TEST_ERROR;
 
+    #if DEBUG
+    printf("gioc %d: messaggio fine band ricevuto\n", pos_token);
+    #endif
+
     mc_bandiere = (band *) shmat(msg.ind, NULL, 0);
 
     num_band = sizeof(mc_bandiere) / sizeof(mc_bandiere[0]);
@@ -346,15 +346,25 @@ void initObiettivi(int msg_id_coda, int pos_token) {
     }
 
     shmdt(mc_bandiere);
+
+    #if DEBUG
+    for(i = 0; i < SO_NUM_P; i++) {
+        printf("gioc: %d, ped %d %d ha obiettivo band %d %d"
+            , (pos_token + 1)
+            , mc_ped_squadra[i].pos_attuale.y
+            , mc_ped_squadra[i].pos_attuale.x
+            , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.y
+            , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.x);
+    }
+    #endif
 }
 
 void assegnaObiettivo(coord pos_ped_sq, int ind_band) {
     int i;
-    
-    i = 0;
-    
-    while(calcDist(mc_ped_squadra[i].pos_attuale, pos_ped_sq)) i++;
 
+    i = 0;
+
+    while(calcDist(mc_ped_squadra[i].pos_attuale, pos_ped_sq)) i++;
     mc_ped_squadra[i].obiettivo = ind_band;
 }
 
