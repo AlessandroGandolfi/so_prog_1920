@@ -21,6 +21,16 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 
 #include "header.h"
 
+void waitObj();
+void calcPercorso(int);
+
+/* globali */
+ped *mc_ped_squadra;
+char *mc_char_scac;
+band *mc_bandiere;
+int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac, ind_ped_sq;
+coord *percorso;
+
 /* 
 parametri a pedine
 0 - path relativo file pedina
@@ -30,16 +40,55 @@ parametri a pedine
 4 - id sem scacchiera
 5 - id mc squadra, array pedine
 6 - indice identificativo pedina dell'array in mc squadra
+7 - id coda msg
 */
 int main(int argc, char **argv) {
-    int sem_id_scac;
     struct timespec arg_sleep;
 
-    sem_id_scac = atoi(argv[4]);
+    mc_id_squadra = atoi(argv[5]);
+    ind_ped_sq = atoi(argv[6]);
+    msg_id_coda = atoi(argv[7]);
+
+    mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
+
+    waitObj();
 
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
     nanosleep(&arg_sleep, NULL);
 
     exit(EXIT_SUCCESS);
+}
+
+void waitObj() {
+    msg_new_obj msg_obj;
+
+    /* ricezione messaggio con id di mc con bandiere */
+    if(msgrcv(msg_id_coda, &msg_obj, sizeof(msg_new_obj) - sizeof(long), getpid(), 0) == -1) TEST_ERROR;
+    
+    if(msg_obj.band_assegnata) calcPercorso(msg_obj.mc_id_band);
+    else waitObj();
+}
+
+void calcPercorso(int mc_id_band) {
+    int num_mosse;
+    band *mc_bandiere;
+
+    mc_bandiere = (band *) shmat(mc_id_band, NULL, 0);
+
+    /* 
+    nel caso di bandierina o casella occupata nel corso del round
+    elimino e rialloco array di mosse
+    */
+    if(percorso) free(percorso);
+
+    num_mosse = calcDist(mc_ped_squadra[ind_ped_sq].pos_attuale, mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band);
+
+    /* alloco array locale di grandezza = numero di mosse necessarie a raggiungere bandiera */
+    percorso = (coord *) calloc(num_mosse, sizeof(coord));
+}
+
+/* dist manhattan */
+int calcDist(coord cas1, coord cas2) {
+    return abs(cas1.x - cas2.x) + abs(cas1.y - cas2.y);
 }

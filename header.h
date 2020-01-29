@@ -64,7 +64,6 @@ typedef struct _bandierina {
 typedef struct _pedina {
     int obiettivo;
     coord pos_attuale;
-    coord *percorso;
     int mosse_rim;
 } ped;
 
@@ -82,11 +81,11 @@ typedef struct _msg_band {
     int num_band;
 } msg_band;
 
-/* messaggio usato per segnalare bisogno nuovo obiettivo */
+/* messaggio usato per segnalare assegnazione nuovo obiettivo */
 typedef struct _msg_nuovo_obiettivo {
     long mtype;
-    long pid_ped;
-    int ind_mc_ped;
+    int mc_id_band;
+    int band_assegnata;
 } msg_new_obj;
 
 /* messaggio usato per segnalare fine piazzamento */
