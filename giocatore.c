@@ -156,7 +156,7 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
     sprintf(tmp_params[3], "%d", mc_id_squadra);
     param_pedine[5] = tmp_params[3];
     sprintf(tmp_params[5], "%d", msg_id_coda);
-    param_pedine[7] = tmp_params[3];
+    param_pedine[7] = tmp_params[5];
     param_pedine[8] = NULL;
     
     /* pedine ancora non piazzate con coord -1, -1 */
