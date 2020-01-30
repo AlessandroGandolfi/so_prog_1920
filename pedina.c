@@ -71,9 +71,9 @@ void waitObj() {
 }
 
 void calcPercorso(int mc_id_band) {
-    int num_mosse;
+    int i, num_mosse;
     band *mc_bandiere;
-
+    coord cont;
     mc_bandiere = (band *) shmat(mc_id_band, NULL, 0);
 
     /* 
@@ -81,11 +81,44 @@ void calcPercorso(int mc_id_band) {
     elimino e rialloco array di mosse
     */
     if(percorso) free(percorso);
-
+    
     num_mosse = calcDist(mc_ped_squadra[ind_ped_sq].pos_attuale, mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band);
 
     /* alloco array locale di grandezza = numero di mosse necessarie a raggiungere bandiera */
     percorso = (coord *) calloc(num_mosse, sizeof(coord));
+    
+    /*calcolo il percorso della pedina*/
+    for(i=0;i<num_mosse;i++){
+        if(mc_ped_squadra[ind_ped_sq].pos_attuale.x-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.x==0){
+            if(mc_ped_squadra[ind_ped_sq].pos_attuale.y-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.y==0){
+                cont.x=mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.x;
+                cont.y=mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.y;
+                percorso[i]=cont;
+            }
+            else if(mc_ped_squadra[ind_ped_sq].pos_attuale.y-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.y>0){
+                cont.x=mc_ped_squadra[ind_ped_sq].pos_attuale.x;
+                cont.y=mc_ped_squadra[ind_ped_sq].pos_attuale.y-1;
+                percorso[i]=cont;
+            }
+            else{
+                cont.x=mc_ped_squadra[ind_ped_sq].pos_attuale.x;
+                cont.y=mc_ped_squadra[ind_ped_sq].pos_attuale.y+1;
+                percorso[i]=cont;
+            }    
+        }
+        else if(mc_ped_squadra[ind_ped_sq].pos_attuale.x-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.x>0){
+            cont.x=mc_ped_squadra[ind_ped_sq].pos_attuale.x-1;
+            cont.y=mc_ped_squadra[ind_ped_sq].pos_attuale.y;
+            percorso[i]=cont;
+        }
+        else{
+            cont.x=mc_ped_squadra[ind_ped_sq].pos_attuale.x+1;
+            cont.y=mc_ped_squadra[ind_ped_sq].pos_attuale.y;
+            percorso[i]=cont;
+        }
+    }
+
+
 }
 
 /* dist manhattan */
