@@ -22,15 +22,16 @@ se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
 #include "header.h"
 
 void waitObj();
-void calcPercorso(int);
+void calcPercorso();
+int muoviPedina(int, int);
+void aggiornaStato(int, int);
 
 /* globali */
 ped *mc_ped_squadra;
 char *mc_char_scac;
-band *mc_bandiere;
-int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac, ind_ped_sq;
+int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac, ind_ped_sq, pos_token;
 coord *percorso;
-struct timespec arg_sleep;
+
 /* 
 parametri a pedine
 0 - path relativo file pedina
@@ -43,17 +44,27 @@ parametri a pedine
 7 - id coda msg
 */
 int main(int argc, char **argv) {
-    struct timespec arg_sleep;
+    pos_token = atoi(argv[3]);
     mc_id_squadra = atoi(argv[5]);
     ind_ped_sq = atoi(argv[6]);
     msg_id_coda = atoi(argv[7]);
 
+    getConfig(argv[1]);
+
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
 
-    waitObj();
-    arg_sleep.tv_sec = 0;
-    arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
-    nanosleep(&arg_sleep, NULL);
+    do {
+        waitObj();
+
+        /* wait for zero true */
+
+        if(muoviPedina) {
+            // segnale bandiera presa
+        } else {
+            // segnale nuovo obiettivo
+        }
+
+    } while(TRUE);
 
     exit(EXIT_SUCCESS);
 }
@@ -62,105 +73,125 @@ void waitObj() {
     msg_new_obj msg_obj;
 
     /* ricezione messaggio con id di mc con bandiere */
-    if(msgrcv(msg_id_coda, &msg_obj, sizeof(msg_new_obj) - sizeof(long), getpid(), 0) == -1) TEST_ERROR;
+    msgrcv(msg_id_coda, &msg_obj, sizeof(msg_new_obj) - sizeof(long), getpid(), 0);
+    TEST_ERROR;
     
-    if(msg_obj.band_assegnata) calcPercorso(msg_obj.mc_id_band);
-    else waitObj();
+    /* solo quelle con obiettivo ricevono il messaggio */
+    calcPercorso();    
 }
 
-void calcPercorso(int mc_id_band) {
+void calcPercorso() {
     int i, num_mosse;
-    band *mc_bandiere;
     coord cont;
-    mc_bandiere = (band *) shmat(mc_id_band, NULL, 0);
 
     /* 
     nel caso di bandierina o casella occupata nel corso del round
     elimino e rialloco array di mosse
     */
-    if(percorso) free(percorso);
-    cont=mc_ped_squadra[ind_ped_sq].pos_attuale;
-    num_mosse = calcDist(mc_ped_squadra[ind_ped_sq].pos_attuale, mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band);
-    printf("numero mosse: %d\n", num_mosse);
-    /* alloco array locale di grandezza = numero di mosse necessarie a raggiungere bandiera */
+    if(percorso != NULL) free(percorso);
+    num_mosse = calcDist(mc_ped_squadra[ind_ped_sq].pos_attuale, mc_ped_squadra[ind_ped_sq].obiettivo);
     percorso = (coord *) calloc(num_mosse, sizeof(coord));
     
+    cont = mc_ped_squadra[ind_ped_sq].pos_attuale;
+
     /*calcolo il percorso della pedina*/
-    for(i=0;i<num_mosse;i++){
-        if(cont.x-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.x==0){
-            if(cont.y-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.y==0){
-                percorso[i].x=mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.x;
-                percorso[i].y=mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.y;
-                
+    for(i = 0; i < num_mosse; i++) {
+        if((cont.x - mc_ped_squadra[ind_ped_sq].obiettivo.x) == 0) {
+            /* mossa finale percorso */
+            if((cont.y - mc_ped_squadra[ind_ped_sq].obiettivo.y) == 0)
+                percorso[i] = mc_ped_squadra[ind_ped_sq].obiettivo;
+            /* mossa in alto */
+            else if((cont.y - mc_ped_squadra[ind_ped_sq].obiettivo.y) > 0) {
+                percorso[i].x = cont.x;
+                percorso[i].y = cont.y - 1;
             }
-            else if(cont.y-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.y>0){
-                percorso[i].x=cont.x;
-                percorso[i].y=cont.y-1;
-            }
-            else{
-                percorso[i].x=cont.x;
-                percorso[i].y=cont.y+1;
+            /* mossa in basso */
+            else {
+                percorso[i].x = cont.x;
+                percorso[i].y = cont.y + 1;
             }    
         }
-        else if(cont.x-mc_bandiere[mc_ped_squadra[ind_ped_sq].obiettivo].pos_band.x>0){
-            percorso[i].x=cont.x-1;
-            percorso[i].y=cont.y;
-            
+        /* mossa a sinistra */
+        else if((cont.x - mc_ped_squadra[ind_ped_sq].obiettivo.x) > 0) {
+            percorso[i].x = cont.x - 1;
+            percorso[i].y = cont.y;
         }
-        else{
-            percorso[i].x=cont.x+1;
-            percorso[i].y=cont.y;
+        /* mossa a destra */
+        else {
+            percorso[i].x = cont.x + 1;
+            percorso[i].y = cont.y;
         }
-        cont=percorso[i];
+        cont = percorso[i];
     }
+
     #if DEBUG
-        for(i=0;i<num_mosse;i++){
-            printf("ped: %d, %d, coord: %d %d\n",mc_ped_squadra[ind_ped_sq].pos_attuale.x,mc_ped_squadra[ind_ped_sq].pos_attuale.y,percorso[i].x, percorso[i].y);
-        }
+    for(i = 0; i < num_mosse; i++) {
+        printf("ped: %d, %d, coord: %d %d\n"
+            , mc_ped_squadra[ind_ped_sq].pos_attuale.x
+            , mc_ped_squadra[ind_ped_sq].pos_attuale.y
+            , percorso[i].x
+            , percorso[i].y);
+    }
     #endif
 }
 
-/*void muoviPedina(){
-    int i, dim;
+int muoviPedina(int dim, int ind_ped_sq){
+    int ind_mossa, band_presa;
     struct sembuf sops;
-    ped pedina;
+    struct timespec arg_sleep;
+
+    band_presa = TRUE;
+
+    for(ind_mossa = 0; ind_mossa < dim && band_presa; ind_mossa++){
+        /* prima di ogni mossa controlla dalla scacchiera che l'obiettivo non sia stato giá preso */
+        if(mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].obiettivo)] == 'B') {
+            sops.sem_num = INDEX(percorso[ind_mossa]);
+            sops.sem_op = -1;
+            sops.sem_flg = IPC_NOWAIT;
+
+            /* prova ad eseguire mossa subito */
+            if(semop(sem_id_scac, &sops, 1) == -1) {
+                arg_sleep.tv_sec = 0;
+                arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC / 2;
+
+                /* riprova dopo (SO_MIN_HOLD_NSEC / 2) se non riesce al primo tentativo */
+                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
+                    band_presa = FALSE; /* richiesta nuovo obiettivo */
+                else aggiornaStato(ind_ped_sq, ind_mossa);
+            }
+            else aggiornaStato(ind_ped_sq, ind_mossa);
+        } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene suo obiettivo */
+    }
+
+    return band_presa;
+}
+
+void aggiornaStato(int ind_ped_sq, int ind_mossa) {
+    struct sembuf sops;
+    struct timespec arg_sleep;
+
+    mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0';
+    mc_char_scac[INDEX(percorso[ind_mossa])] = (pos_token + 1) + '0';
+
+    /* libera risorsa precedente */
+    sops.sem_num = INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale);
+    sops.sem_op = 1;
+    sops.sem_flg = 0;
+    semop(sem_id_scac, &sops, 1);
+    
+    mc_ped_squadra[ind_ped_sq].pos_attuale = percorso[ind_mossa];
+    mc_ped_squadra[ind_ped_sq].mosse_rim--;
+
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
-    dim=sizeof(percorso)/sizeof(percorso[0]);
-    for(i=0;i<dim;i++){
-        if(mc_char_scac[INDEX(percorso[i])]=='0'){
-            sops.sem_num = INDEX(percorso[i]);
-            sops.sem_op = -1;
-            sops.sem_flg = 0;
-            semop(sem_id_scac, &sops, 1);
-
-            sops.sem_num = INDEX(pedina.pos_attuale);
-	        sops.sem_op = 1;
-	        sops.sem_flg = 0;
-	
-	        semop(sem_id_scac, &sops, 1);
-
-            nanosleep(&arg_sleep, NULL);
-
-            pedina.pos_attuale=percorso[i];
-            pedina.mosse_rim=-1;
-        }
-        else if(mc_char_scac[INDEX(percorso[i])]=="B"){
-
-
-        }
-        else {
-
-        }
-        
-
-    }
-}*/
+    nanosleep(&arg_sleep, NULL);
+}
 
 /* dist manhattan */
 int calcDist(coord cas1, coord cas2) {
     return abs(cas1.x - cas2.x) + abs(cas1.y - cas2.y);
 }
+
 void getConfig(char *mode) {
     FILE *fs;
     char *config_file;

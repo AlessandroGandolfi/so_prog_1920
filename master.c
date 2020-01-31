@@ -53,7 +53,7 @@ int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac;
 
 int main(int argc, char **argv) {
     int status, i, token_gioc;
-    msg_fine_piaz msg;
+    msg_conf msg;
 
     checkMode(argc, argv[1]);
     
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     #if DEBUG
     printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
     #endif
-    msgrcv(msg_id_coda, &msg, sizeof(msg_fine_piaz) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
+    msgrcv(msg_id_coda, &msg, sizeof(msg_conf) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 
     /* creazione bandiere, valorizzazione array bandiere */

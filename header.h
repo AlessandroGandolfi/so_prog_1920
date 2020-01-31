@@ -55,15 +55,16 @@ typedef struct _coordinate {
     int y;
 } coord;
 
-typedef struct _bandierina {
+typedef struct _bandiera {
     coord pos_band;
     int punti;
     int presa;
 } band;
 
 typedef struct _pedina {
-    int obiettivo;
     coord pos_attuale;
+    coord obiettivo;
+    int id_band;
     int mosse_rim;
 } ped;
 
@@ -75,7 +76,7 @@ typedef struct _giocatore {
 } gioc;
 
 /* messaggio usato per segnalare una bandierina presa e id mc bandiere */
-typedef struct _msg_band {
+typedef struct _msg_bandiera {
     long mtype;
     int ind;
     int num_band;
@@ -84,15 +85,13 @@ typedef struct _msg_band {
 /* messaggio usato per segnalare assegnazione nuovo obiettivo */
 typedef struct _msg_nuovo_obiettivo {
     long mtype;
-    int mc_id_band;
     int band_assegnata;
 } msg_new_obj;
 
 /* messaggio usato per segnalare fine piazzamento */
-typedef struct _msg_piaz {
+typedef struct _msg_conferma {
     long mtype;
-    int fine_piaz;
-} msg_fine_piaz;
+} msg_conf;
 
 int SO_NUM_G;
 int SO_NUM_P;

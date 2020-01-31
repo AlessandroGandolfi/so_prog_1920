@@ -14,9 +14,9 @@ nel caso venga segnalato che una bandierina é stata presa il giocatore
 void initPedine(int, int, char *);
 void piazzaPedina(int, int);
 int checkPosPedine(coord);
-void initObiettivi(int, int);
-int assegnaObiettivo(coord, int);
-void sqOrNem(int *, int *, int, coord, int);
+void initObiettivi(int, int, int);
+int assegnaObiettivo(coord, int, int);
+void sqOrNem(int *, int *, int, coord, int, int, int);
 
 /* globali */
 ped *mc_ped_squadra;
@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     initPedine(token_gioc, pos_token, argv[1]);
 
     /* assegnazione obiettivi */
-    initObiettivi(msg_id_coda, pos_token);
+    initObiettivi(msg_id_coda, token_gioc, pos_token);
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
@@ -130,7 +130,7 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
     char *param_pedine[9];
     char tmp_params[6][sizeof(char *)];
     struct sembuf sops;
-    msg_fine_piaz avviso_master;
+    msg_conf avviso_master;
 
     pids_pedine = (pid_t *) calloc(SO_NUM_P, sizeof(pid_t));
 
@@ -163,7 +163,9 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
     for(i = 0; i < SO_NUM_P; i++) {
         mc_ped_squadra[i].pos_attuale.x = -1; 
         mc_ped_squadra[i].pos_attuale.y = -1;
-        mc_ped_squadra[i].obiettivo = -1;
+        mc_ped_squadra[i].obiettivo.x = -1;
+        mc_ped_squadra[i].obiettivo.y = -1;
+        mc_ped_squadra[i].id_band = -1;
     }
 
     for(i = 0; i < SO_NUM_P; i++) {
@@ -185,8 +187,7 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
         */
         if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
         	avviso_master.mtype = (long) getpid();
-            avviso_master.fine_piaz = 10001;
-            msgsnd(msg_id_coda, &avviso_master, sizeof(msg_fine_piaz) - sizeof(long), 0);
+            msgsnd(msg_id_coda, &avviso_master, sizeof(msg_conf) - sizeof(long), 0);
             TEST_ERROR;
 
             #if DEBUG
@@ -301,11 +302,17 @@ int calcDist(coord cas1, coord cas2) {
 }
 
 /* TODO */
-void initObiettivi(int msg_id_coda, int pos_token) {
+void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
     msg_band msg_new_band;
     msg_new_obj msg_obj;
-    int i, num_band, riga, range_scan, ped_sq, ped_nem;
+    int i, j, num_band, riga, range_scan, ped_sq, ped_nem, token_round;
     coord check;
+
+    /*
+    controlla se round é in corso
+    se é in corso non tiene conto di pedine nemiche
+    */
+    token_round = semctl(token_gioc, pos_token, GETVAL, 0);
 
     // --------------------------SPOSTARE--------------------------
 
@@ -322,57 +329,79 @@ void initObiettivi(int msg_id_coda, int pos_token) {
     // ----------------------------------------------------
 
     for(i = 0; i < msg_new_band.num_band; i++) {
-        ped_sq = FALSE;
-        ped_nem = FALSE;
-        range_scan = 0;
-        do {
-            range_scan++;
-            /* scan riga da -range a +range */
-            for(riga = (range_scan * -1); riga <= range_scan; riga++) {
-                check.y = mc_bandiere[i].pos_band.y;
-                check.y += riga;
-                if(check.y >= 0 && check.y < SO_ALTEZZA) {
-                    /* scan da sx a centro */
-                    check.x = mc_bandiere[i].pos_band.x;
-                    check.x -= (range_scan - abs(riga));
-                    if(check.x >= 0)
-                        sqOrNem(&ped_sq, &ped_nem, pos_token, check, i);
+        if(!mc_bandiere[i].presa) {
+            ped_sq = FALSE;
+            ped_nem = FALSE;
+            range_scan = 0;
+            do {
+                range_scan++;
+                /* scan riga da -range a +range */
+                for(riga = (range_scan * -1); riga <= range_scan; riga++) {
+                    check.y = mc_bandiere[i].pos_band.y;
+                    check.y += riga;
+                    if(check.y >= 0 && check.y < SO_ALTEZZA) {
+                        /* scan da sx a centro */
+                        check.x = mc_bandiere[i].pos_band.x;
+                        check.x -= (range_scan - abs(riga));
+                        if(check.x >= 0)
+                            sqOrNem(&ped_sq
+                                    , &ped_nem
+                                    , pos_token
+                                    , check
+                                    , token_round
+                                    , i
+                                    , range_scan);
 
-                    /* da dopo centro a dx */
-                    check.x +=  2 * (range_scan - abs(riga));
-                    if(check.x < SO_BASE && (range_scan - abs(riga)) > 0)
-                        sqOrNem(&ped_sq, &ped_nem, pos_token, check, i);
+                        /* da dopo centro a dx */
+                        check.x +=  2 * (range_scan - abs(riga));
+                        if(check.x < SO_BASE && (range_scan - abs(riga)) > 0)
+                            sqOrNem(&ped_sq
+                                    , &ped_nem
+                                    , pos_token
+                                    , check
+                                    , token_round
+                                    , i
+                                    , range_scan);
+                    }
+                }
+            } while(!ped_sq && !ped_nem);
+
+        } else {
+            for(j = 0; j < SO_NUM_P; j++) {
+                if(mc_ped_squadra[j].id_band == i) {
+                    mc_ped_squadra[j].obiettivo.x = -1;
+                    mc_ped_squadra[j].obiettivo.y = -1;
+                    mc_ped_squadra[j].id_band = -1;
                 }
             }
-        } while(!ped_sq && !ped_nem);
+        }
     }
 
     for(i = 0; i < SO_NUM_P; i++) {
-        #if DEBUG
-        if(mc_ped_squadra[i].obiettivo != -1) {
+        if(mc_ped_squadra[i].obiettivo.x != -1) {
+            msg_obj.mtype = (long) pids_pedine[i];
+            msgsnd(msg_id_coda, &msg_obj, sizeof(msg_new_obj) - sizeof(long), 0);
+            TEST_ERROR;
+
+            #if DEBUG
             printf("gioc %d: band %d %d\n"
                 , (pos_token + 1)
-                , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.y
-                , mc_bandiere[mc_ped_squadra[i].obiettivo].pos_band.x);
+                , mc_ped_squadra[i].obiettivo.y
+                , mc_ped_squadra[i].obiettivo.x);
+            #endif
         }
-        #endif
-            
-        msg_obj.mc_id_band = msg_new_band.ind;
-        msg_obj.band_assegnata = (mc_ped_squadra[i].obiettivo != -1) ? TRUE : FALSE;
-        msg_obj.mtype = (long) pids_pedine[i];
-        msgsnd(msg_id_coda, &msg_obj, sizeof(msg_new_obj) - sizeof(long), 0);
-        TEST_ERROR;
     }
 
     // --------------------------SPOSTARE--------------------------
     shmdt(mc_bandiere);
 }
 
-void sqOrNem(int *ped_sq, int *ped_nem, int pos_token, coord check, int index) {
+void sqOrNem(int *ped_sq, int *ped_nem, int pos_token, coord check, int token_round, int index, int mosse_richieste) {
     if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0'))
-        *ped_sq = assegnaObiettivo(check, index);
+        *ped_sq = assegnaObiettivo(check, index, mosse_richieste);
     else if(mc_char_scac[INDEX(check)] != 'B' 
         && mc_char_scac[INDEX(check)] != '0'
+        && token_round /* giocatore non tiene conto delle pedine nemiche se é in corso un round */
         #if DEBUG
         && mc_char_scac[INDEX(check)] != '*'
         #endif
@@ -385,18 +414,20 @@ void sqOrNem(int *ped_sq, int *ped_nem, int pos_token, coord check, int index) {
     #endif
 }
 
-int assegnaObiettivo(coord pos_ped_sq, int ind_band) {
+int assegnaObiettivo(coord pos_ped_sq, int id_band, int mosse_richieste) {
     int i;
 
     i = 0;
 
     while(calcDist(mc_ped_squadra[i].pos_attuale, pos_ped_sq)) i++;
 
-    if(mc_ped_squadra[i].obiettivo != -1
-        && mc_bandiere[ind_band].punti <= mc_bandiere[mc_ped_squadra[i].obiettivo].punti) 
+    if(mc_ped_squadra[i].obiettivo.x != -1
+        && mc_bandiere[id_band].punti <= mc_bandiere[mc_ped_squadra[i].id_band].punti
+        && mc_ped_squadra[i].mosse_rim >= mosse_richieste) 
         return FALSE;
 
-    mc_ped_squadra[i].obiettivo = ind_band;
+    mc_ped_squadra[i].obiettivo = mc_bandiere[id_band].pos_band;
+    mc_ped_squadra[i].id_band = id_band;
 
     return TRUE;
 }
