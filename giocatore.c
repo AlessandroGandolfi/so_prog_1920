@@ -396,8 +396,10 @@ void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
         }
     }
 
+    /* msg a master fine calcolo percorsi per inizio round */
     if(token_round) {
-        // msg send a master per inizio round
+        msg_perc.mtype = (long) getppid();
+        msgsnd(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), 0);
     }
 
     // --------------------------SPOSTARE--------------------------

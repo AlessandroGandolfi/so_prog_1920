@@ -17,7 +17,7 @@ int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac;
 
 int main(int argc, char **argv) {
     int status, i, token_gioc, num_band;
-    msg_conf msg;
+    msg_conf msg_ped;
     msg_band_presa msg_presa;
     semun arg_init_round, arg_end_round;
 
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     #if DEBUG
     printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
     #endif
-    msgrcv(msg_id_coda, &msg, sizeof(msg_conf) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
+    msgrcv(msg_id_coda, &msg_ped, sizeof(msg_conf) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 
     /* usati per inizio e fine round */
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 
     // inizio ciclo round
 
-    /* creazione bandiere, valorizzazione array bandiere */
+        /* creazione bandiere, valorizzazione array bandiere */
         num_band = initBandiere(token_gioc);
 
         semctl(token_gioc, 0, SETALL, arg_init_round);
@@ -447,7 +447,9 @@ int initBandiere(int token_gioc) {
         msgsnd(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), 0);
         TEST_ERROR;
 
-        /* una alla volta le squadre calcolano i percorsi i percorsi delle pedine */
+        /* tra queste sc i giocatori assegnano obiettivi e pedine calcolano i percorsi */
+
+        /* una alla volta le squadre calcolano i percorsi delle pedine */
         msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) getpid(), 0);
         TEST_ERROR;
     }
