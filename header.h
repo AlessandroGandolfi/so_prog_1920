@@ -82,13 +82,18 @@ typedef struct _msg_bandiera {
     int num_band;
 } msg_band;
 
-/* messaggio usato per segnalare assegnazione nuovo obiettivo */
-typedef struct _msg_nuovo_obiettivo {
+/* messaggio usato per segnalare una bandiera presa */
+typedef struct _msg_bandiera_presa {
     long mtype;
-    int band_assegnata;
-} msg_new_obj;
+    int id_band;
+    int pos_token;
+} msg_band_presa;
 
-/* messaggio usato per segnalare fine piazzamento */
+/* 
+messaggio di conferma generale usato per
+    fine piazzamento pedine da giocatore a master
+    fine calcolo percorso da pedine a giocatore
+*/
 typedef struct _msg_conferma {
     long mtype;
 } msg_conf;

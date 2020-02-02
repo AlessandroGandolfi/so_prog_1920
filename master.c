@@ -1,39 +1,3 @@
-/*
-passaggi inizio primo round:
-gioc
-    master
-        pedine
-
-        - pedina bloccata su msgrcv da giocatore 
-- ultimo giocatore a piazzare invia msg a master X
-- giocatori si mettono in attesa di messaggio con id di bandiere in mc X
-    - master riceve via libera da giocatori per piazzare bandiere X
-    - tutti token a 1 X
-    - allocazione array bandiere e calcolo punteggio singola bandiera X
-    - invio SO_NUM_G msg con id mc bandiere a giocatori X
-- giocatori ricezione msg da master X
-- msg a ogni pedina dopo assegnazione percorso a pedine (ciclo su pids_pedine)
-        - pedina riceve messaggio (ha obiettivo)
-        - calcolo percorso
-        - pedine wait for 0 su token squadra ad avvio
-- msg fine assegnazione obiettivi a master
-    - a messaggio di ultimo gioc per obiettivi setto tutti token a 0
-        - avvio movimenti
--------------------------------------------------------------------------
-posso settare percorso a pedina una per volta
-giocatore:
-    for pedina
-        assegna obiettivo
-        manda messaggio a pedina singola per obiettivo
-        attesa messaggio da pedina per calcolo percorso
-    manda messaggio a master fine calcolo percorso
-pedina: 
-    attesa ricezione messaggio obiettivo
-    calcolo percorso
-    invio messaggio giocatore per fine percorso
-    attesa 0
-*/
-
 #include "header.h"
 
 void checkMode(int, char *);
@@ -42,7 +6,7 @@ int initGiocatori(char *);
 void initSemScacchiera();
 void somebodyTookMaShmget(int);
 void stampaScacchiera();
-void initBandiere(int);
+int initBandiere(int);
 int checkPosBandiere(coord, int);
 
 /* globali */
@@ -52,8 +16,10 @@ band *mc_bandiere;
 int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac;
 
 int main(int argc, char **argv) {
-    int status, i, token_gioc;
+    int status, i, token_gioc, num_band;
     msg_conf msg;
+    msg_band_presa msg_presa;
+    semun arg_init_round, arg_end_round;
 
     checkMode(argc, argv[1]);
     
@@ -61,6 +27,7 @@ int main(int argc, char **argv) {
     testConfig();
     #endif
 
+    /* time torna int secondi da mezzanotte primo gennaio 1970 */
     srand(time(NULL) + getpid());
 
     initRisorse();
@@ -75,9 +42,36 @@ int main(int argc, char **argv) {
     msgrcv(msg_id_coda, &msg, sizeof(msg_conf) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
     TEST_ERROR;
 
-    /* creazione bandiere, valorizzazione array bandiere */
-    initBandiere(token_gioc);
+    /* usati per inizio e fine round */
+    arg_init_round.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
+    arg_end_round.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
 
+    for(i = 0; i < SO_NUM_G; i++) {
+        arg_init_round.array[i] = 0;
+        arg_end_round.array[i] = 1;
+    }
+
+    // inizio ciclo round
+
+    /* creazione bandiere, valorizzazione array bandiere */
+        num_band = initBandiere(token_gioc);
+
+        semctl(token_gioc, 0, SETALL, arg_init_round);
+        TEST_ERROR;
+
+        for(i = 0; i < num_band; i++) {
+            msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(msg_band_presa), (long) getpid(), 0);
+            TEST_ERROR;
+
+            mc_bandiere[msg_presa.id_band].presa = TRUE;
+            giocatori[msg_presa.pos_token].punteggio += mc_bandiere[msg_presa.id_band].punti;
+        }
+
+        semctl(token_gioc, 0, SETALL, arg_end_round);
+        TEST_ERROR;
+
+    // fine ciclo round, while almeno una pedina di almeno un giocatore puó raggiungere un obiettivo
+    
     #if DEBUG
     sleep(1);
     stampaScacchiera();
@@ -87,6 +81,7 @@ int main(int argc, char **argv) {
     while(wait(&status) > 0);
     TEST_ERROR;
 
+    // anche da fare all'interno dell'handler dell'alarm
     /* detach e rm mc, sem, msg */
     somebodyTookMaShmget(token_gioc);
 
@@ -100,11 +95,13 @@ param:
 - modalitá selezionata (def a "" in makefile)
 */
 void checkMode(int argc, char *mode) {
-    if(argc < 2 || (strcmp(mode, "easy") != 0 && strcmp(mode, "hard") != 0
-    #if DEBUG
-                    && strcmp(mode, "debug") != 0
-    #endif
-    )) {
+    if(argc < 2 
+        || (strcmp(mode, "easy") != 0 && strcmp(mode, "hard") != 0
+            #if DEBUG
+            && strcmp(mode, "debug") != 0
+            #endif
+        )
+    ) {
         printf("Specificare \"easy\" o \"hard\" per avviare il progetto\n");
         exit(0);
     } else {
@@ -372,9 +369,10 @@ piazzamento nuove bandiere e distribuzione loro punteggio
 param:
 - id token giocatori (usato successivamente per partenza round)
 */
-void initBandiere(int token_gioc) {
+int initBandiere(int token_gioc) {
     int i, riga, colonna, tot_punti_rim, num_band;
     msg_band msg_new_band;
+    msg_conf msg_perc;
     semun sem_arg;
     coord casella;
 
@@ -448,7 +446,13 @@ void initBandiere(int token_gioc) {
     for(i = 0; i < SO_NUM_G; i++) {
         msgsnd(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), 0);
         TEST_ERROR;
+
+        /* una alla volta le squadre calcolano i percorsi i percorsi delle pedine */
+        msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) getpid(), 0);
+        TEST_ERROR;
     }
+
+    return num_band;
 }
 
 /*
