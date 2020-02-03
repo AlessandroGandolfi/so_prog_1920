@@ -5,8 +5,8 @@ void initRisorse();
 int initGiocatori(char *);
 void initSemScacchiera();
 void somebodyTookMaShmget(int);
-void stampaScacchiera();
-int initBandiere(int);
+void stampaScacchiera(int);
+int initBandiere(int, int);
 int checkPosBandiere(coord, int);
 
 /* globali */
@@ -16,10 +16,10 @@ band *mc_bandiere;
 int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac;
 
 int main(int argc, char **argv) {
-    int status, i, token_gioc, num_band;
+    int status, i, token_gioc, num_band, num_round;
     msg_conf msg_ped;
     msg_band_presa msg_presa;
-    semun arg_init_round, arg_end_round;
+    semun sem_arg;
 
     checkMode(argc, argv[1]);
     
@@ -39,46 +39,52 @@ int main(int argc, char **argv) {
     #if DEBUG
     printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
     #endif
-    msgrcv(msg_id_coda, &msg_ped, sizeof(msg_conf) - sizeof(long), (long) giocatori[SO_NUM_G - 1].pid, 0);
+    msgrcv(msg_id_coda, &msg_ped, sizeof(msg_conf) - sizeof(long), (long) (giocatori[SO_NUM_G - 1].pid + MSG_PIAZZAMENTO), 0);
     TEST_ERROR;
 
-    /* usati per inizio e fine round */
-    arg_init_round.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
-    arg_end_round.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
+    /* usato per inizio e fine round */
+    sem_arg.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
 
-    for(i = 0; i < SO_NUM_G; i++) {
-        arg_init_round.array[i] = 0;
-        arg_end_round.array[i] = 1;
-    }
+    num_round = 1;
 
     do {
-
         /* creazione bandiere, valorizzazione array bandiere */
-        num_band = initBandiere(token_gioc);
+        num_band = initBandiere(token_gioc, num_round);
 
-        stampaScacchiera();
+        stampaScacchiera(num_round);
+        
+        for(i = 0; i < SO_NUM_G; i++)
+            sem_arg.array[i] = 0;
 
-        semctl(token_gioc, 0, SETALL, arg_init_round);
+        printf("-----------------START-----------------\n");
+
+        semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
 
         for(i = 0; i < num_band; i++) {
-            msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(msg_band_presa), (long) getpid(), 0);
+            msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
             TEST_ERROR;
 
             mc_bandiere[msg_presa.id_band].presa = TRUE;
             giocatori[msg_presa.pos_token].punteggio += mc_bandiere[msg_presa.id_band].punti;
         }
 
-        semctl(token_gioc, 0, SETALL, arg_end_round);
+        for(i = 0; i < SO_NUM_G; i++)
+            sem_arg.array[i] = 1;
+
+        semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
 
-        stampaScacchiera();
-
+        stampaScacchiera(num_round);
+        
+        printf("------------------END------------------\n");
+        
+        num_round++;
     } while(TRUE);
 
     #if DEBUG
     sleep(1);
-    stampaScacchiera();
+    stampaScacchiera(num_round);
     #endif
 
     /* attesa terminazione di tutti i giocatori */
@@ -233,7 +239,7 @@ void somebodyTookMaShmget(int token_gioc) {
 /*
 stampa scacchiera e calcolo mosse rimanenti per squadra
 */
-void stampaScacchiera() {
+void stampaScacchiera(int num_round) {
     int i, j;
     ped *mc_ped_squadra;
 
@@ -284,8 +290,10 @@ void stampaScacchiera() {
     printf("\033[0m");
     #endif
 
+    printf("Risultati round #%d:\n", num_round);
+
     for(i = 0; i < SO_NUM_G; i++) 
-        printf("Punteggio giocatore %d: %d; %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
+        printf("- Punteggio giocatore %d: %d; %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
 }
 
 /*
@@ -373,7 +381,7 @@ piazzamento nuove bandiere e distribuzione loro punteggio
 param:
 - id token giocatori (usato successivamente per partenza round)
 */
-int initBandiere(int token_gioc) {
+int initBandiere(int token_gioc, int num_round) {
     int i, riga, colonna, tot_punti_rim, num_band;
     msg_band msg_new_band;
     msg_conf msg_perc;
@@ -386,7 +394,7 @@ int initBandiere(int token_gioc) {
     printf("%d bandiere piazzate\n", num_band);
 
     /* gestione cancellazione dopo primo round */
-    if(mc_bandiere != NULL) {
+    if(num_round > 1) {
         shmdt(mc_bandiere);
         TEST_ERROR;
 
@@ -451,19 +459,31 @@ int initBandiere(int token_gioc) {
     testSemToken(token_gioc);
     #endif
 
-    msg_new_band.num_band = num_band;
-    msg_new_band.ind = mc_id_band;
-    msg_new_band.mtype = (long) getpid();
     /* manda un messaggio per giocatore */
     for(i = 0; i < SO_NUM_G; i++) {
+        #if DEBUG
+        printf("master: invio id mc band %d a giocatore %d\n", mc_id_band, (i + 1));
+        #endif
+
+        msg_new_band.num_band = num_band;
+        msg_new_band.ind = mc_id_band;
+        msg_new_band.mtype = (long) giocatori[i].pid + MSG_BANDIERA;
         msgsnd(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), 0);
         TEST_ERROR;
+
+        #if DEBUG
+        printf("master: calcolo percorsi di giocatore %d\n", (i + 1));
+        #endif
 
         /* tra queste sc i giocatori assegnano obiettivi e pedine calcolano i percorsi */
 
         /* una alla volta le squadre calcolano i percorsi delle pedine */
-        msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) getpid(), 0);
+        msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_PERCORSO), 0);
         TEST_ERROR;
+
+        #if DEBUG
+        printf("master: fine percorsi giocatore %d\n", (i + 1));
+        #endif
     }
 
     return num_band;

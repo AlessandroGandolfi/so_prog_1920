@@ -45,20 +45,19 @@ int main(int argc, char **argv) {
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
 
-    sops.sem_num = pos_token;
-    sops.sem_op = 0;
-    sops.sem_flg = 0;
-
     do {
         waitObj();
 
         /* bloccate fino a quando round non é in corso */
+        sops.sem_num = pos_token;
+        sops.sem_op = 0;
+        sops.sem_flg = 0;
         semop(token_gioc, &sops, 1);
 
         if(muoviPedina) {
             msg_presa.id_band = mc_ped_squadra[ind_ped_sq].id_band;
             msg_presa.pos_token = pos_token;
-            msg_presa.mtype = pid_master;
+            msg_presa.mtype = pid_master + MSG_BANDIERA;
             /* msg a master per bandiera presa */
             msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
         }
@@ -67,6 +66,7 @@ int main(int argc, char **argv) {
     } while(TRUE);
 
     shmdt(mc_ped_squadra);
+    TEST_ERROR;
 
     exit(EXIT_SUCCESS);
 }
@@ -75,8 +75,14 @@ void waitObj() {
     msg_conf msg_obiettivo;
 
     /* ricezione messaggio con id di mc con bandiere */
-    msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) getpid(), 0);
-    TEST_ERROR;
+    do {
+        msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0);
+        TEST_ERROR;
+    } while(mc_ped_squadra[ind_ped_sq].id_band == -1);
+
+    #if DEBUG
+    printf("ped %d: msg obiettivo %d ricevuto\n", (ind_ped_sq + 1), (mc_ped_squadra[ind_ped_sq].id_band));
+    #endif
     
     /* solo quelle con obiettivo ricevono il messaggio */
     calcPercorso();    
@@ -91,7 +97,7 @@ void calcPercorso() {
     nel caso di bandierina o casella occupata nel corso del round
     elimino e rialloco array di mosse
     */
-    if(percorso != NULL) free(percorso);
+    free(percorso);
     num_mosse = calcDist(mc_ped_squadra[ind_ped_sq].pos_attuale, mc_ped_squadra[ind_ped_sq].obiettivo);
     percorso = (coord *) calloc(num_mosse, sizeof(coord));
     
@@ -129,19 +135,25 @@ void calcPercorso() {
 
     /* msg send fine calcolo percorso a giocatore prima di inizio round */
     if(semctl(token_gioc, pos_token, GETVAL, 0)) {
-        msg_fine_perc.mtype = (long) getppid();
+        msg_fine_perc.mtype = (long) getpid() + MSG_PERCORSO;
         msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
         TEST_ERROR;
+
+        #if DEBUG
+        printf("ped %d: msg fine calc percorso a gioc %d\n", (ind_ped_sq + 1), (pos_token + 1));
+        #endif
     }
 
     #if DEBUG
-    for(i = 0; i < num_mosse; i++) {
-        printf("ped: %d, %d, coord: %d %d\n"
+    /*
+    for(i = 0; i < num_mosse; i++)
+        printf("ped %d: %d, %d, coord: %d %d\n"
+            , ind_ped_sq
             , mc_ped_squadra[ind_ped_sq].pos_attuale.x
             , mc_ped_squadra[ind_ped_sq].pos_attuale.y
             , percorso[i].x
             , percorso[i].y);
-    }
+    */
     #endif
 }
 
@@ -168,8 +180,7 @@ int muoviPedina(int dim, int ind_ped_sq){
                 if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
                 else aggiornaStato(ind_ped_sq, ind_mossa);
-            }
-            else aggiornaStato(ind_ped_sq, ind_mossa);
+            } else aggiornaStato(ind_ped_sq, ind_mossa);
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
 
@@ -190,7 +201,7 @@ void aggiornaStato(int ind_ped_sq, int ind_mossa) {
     semop(sem_id_scac, &sops, 1);
     
     mc_ped_squadra[ind_ped_sq].pos_attuale = percorso[ind_mossa];
-    mc_ped_squadra[ind_ped_sq].mosse_rim--;
+    mc_ped_squadra[ind_ped_sq].mosse_rim = mc_ped_squadra[ind_ped_sq].mosse_rim - 1;
 
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
@@ -212,7 +223,7 @@ void getConfig(char *mode) {
     strcat(config_file, ".txt");
     
     #if DEBUG
-    printf("path file conf: %s\n", config_file);
+    /* printf("path file conf: %s\n", config_file); */
     #endif
 
     fs = fopen(config_file, "r");

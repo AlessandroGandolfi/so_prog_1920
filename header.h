@@ -25,8 +25,14 @@ flag opzionali
 - DEBUG per stampare piú informazioni
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 1
+#define DEBUG 0
+#define PRINT_SCAN 0
 #define ENABLE_COLORS 1
+
+#define MSG_OBIETTIVO 10001
+#define MSG_PERCORSO 10002
+#define MSG_BANDIERA 10003
+#define MSG_PIAZZAMENTO 10004
 
 #define INDEX(coord) (coord.y * SO_BASE) + coord.x
 
