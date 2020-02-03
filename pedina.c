@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
         }
         
         // segnale nuovo obiettivo
-    } while(mc_ped_squadra[ind_ped_sq].mosse_rim > 0);
+    } while(TRUE);
 
     shmdt(mc_ped_squadra);
 
@@ -170,7 +170,7 @@ int muoviPedina(int dim, int ind_ped_sq){
                 else aggiornaStato(ind_ped_sq, ind_mossa);
             }
             else aggiornaStato(ind_ped_sq, ind_mossa);
-        } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene suo obiettivo */
+        } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
 
     return band_presa;

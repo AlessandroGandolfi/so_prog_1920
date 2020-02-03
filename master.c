@@ -51,10 +51,12 @@ int main(int argc, char **argv) {
         arg_end_round.array[i] = 1;
     }
 
-    // inizio ciclo round
+    do {
 
         /* creazione bandiere, valorizzazione array bandiere */
         num_band = initBandiere(token_gioc);
+
+        stampaScacchiera();
 
         semctl(token_gioc, 0, SETALL, arg_init_round);
         TEST_ERROR;
@@ -70,8 +72,10 @@ int main(int argc, char **argv) {
         semctl(token_gioc, 0, SETALL, arg_end_round);
         TEST_ERROR;
 
-    // fine ciclo round, while almeno una pedina di almeno un giocatore puó raggiungere un obiettivo
-    
+        stampaScacchiera();
+
+    } while(TRUE);
+
     #if DEBUG
     sleep(1);
     stampaScacchiera();
@@ -381,7 +385,15 @@ int initBandiere(int token_gioc) {
 
     printf("%d bandiere piazzate\n", num_band);
 
-    /* TODO detach e eliminazione alla fine di un round */
+    /* gestione cancellazione dopo primo round */
+    if(mc_bandiere != NULL) {
+        shmdt(mc_bandiere);
+        TEST_ERROR;
+
+        shmctl(mc_id_band, IPC_RMID, NULL);
+        TEST_ERROR;
+    }
+
     mc_id_band = shmget(IPC_PRIVATE, num_band * sizeof(band), S_IRUSR | S_IWUSR);
     TEST_ERROR;
 

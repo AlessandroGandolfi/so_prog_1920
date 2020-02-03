@@ -1,4 +1,4 @@
-
+#cflags = -std=c89 -pedantic
 mode ?= ""
 
 debug: clean master giocatore pedina run
