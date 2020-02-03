@@ -47,23 +47,30 @@ int main(int argc, char **argv) {
 
     num_round = 1;
 
+    // TODO controllare che ci siano tutte le periferiche e implementazione alarm
     do {
         /* creazione bandiere, valorizzazione array bandiere */
         num_band = initBandiere(token_gioc, num_round);
-
-        stampaScacchiera(num_round);
         
         for(i = 0; i < SO_NUM_G; i++)
             sem_arg.array[i] = 0;
 
         printf("-----------------START-----------------\n");
 
+        sleep(1);
+
+        stampaScacchiera(num_round);
+        
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
 
         for(i = 0; i < num_band; i++) {
             msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
             TEST_ERROR;
+
+            #if DEBUG
+            printf("band %d presa da gioc %d, %d punti\n", msg_presa.id_band, (msg_presa.pos_token + 1), mc_bandiere[msg_presa.id_band].punti);
+            #endif
 
             mc_bandiere[msg_presa.id_band].presa = TRUE;
             giocatori[msg_presa.pos_token].punteggio += mc_bandiere[msg_presa.id_band].punti;
@@ -74,6 +81,8 @@ int main(int argc, char **argv) {
 
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
+
+        sleep(1);
 
         stampaScacchiera(num_round);
         
@@ -87,11 +96,12 @@ int main(int argc, char **argv) {
     stampaScacchiera(num_round);
     #endif
 
+    // TODO rimuovere e inserire all'interno dell'handler dell'alarm
     /* attesa terminazione di tutti i giocatori */
     while(wait(&status) > 0);
     TEST_ERROR;
 
-    // anche da fare all'interno dell'handler dell'alarm
+    // TODO stessa cosa di sopra
     /* detach e rm mc, sem, msg */
     somebodyTookMaShmget(token_gioc);
 

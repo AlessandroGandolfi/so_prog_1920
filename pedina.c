@@ -1,7 +1,7 @@
 #include "header.h"
 
-void waitObj();
-void calcPercorso();
+int waitObj();
+int calcPercorso();
 int muoviPedina(int, int);
 void aggiornaStato(int, int);
 
@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
     struct sembuf sops;
     long pid_master;
     msg_band_presa msg_presa;
+    int num_mosse;
 
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
@@ -46,7 +47,7 @@ int main(int argc, char **argv) {
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
 
     do {
-        waitObj();
+        num_mosse = waitObj();
 
         /* bloccate fino a quando round non é in corso */
         sops.sem_num = pos_token;
@@ -54,15 +55,15 @@ int main(int argc, char **argv) {
         sops.sem_flg = 0;
         semop(token_gioc, &sops, 1);
 
-        if(muoviPedina) {
+        if(muoviPedina(num_mosse, ind_ped_sq)) {
             msg_presa.id_band = mc_ped_squadra[ind_ped_sq].id_band;
             msg_presa.pos_token = pos_token;
-            msg_presa.mtype = pid_master + MSG_BANDIERA;
+            msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
             /* msg a master per bandiera presa */
             msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
         }
         
-        // segnale nuovo obiettivo
+        // TODO segnale nuovo obiettivo
     } while(TRUE);
 
     shmdt(mc_ped_squadra);
@@ -71,7 +72,7 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
 }
 
-void waitObj() {
+int waitObj() {
     msg_conf msg_obiettivo;
 
     /* ricezione messaggio con id di mc con bandiere */
@@ -85,10 +86,10 @@ void waitObj() {
     #endif
     
     /* solo quelle con obiettivo ricevono il messaggio */
-    calcPercorso();    
+    return calcPercorso();    
 }
 
-void calcPercorso() {
+int calcPercorso() {
     int i, num_mosse, token_round;
     coord cont;
     msg_conf msg_fine_perc;
@@ -97,7 +98,7 @@ void calcPercorso() {
     nel caso di bandierina o casella occupata nel corso del round
     elimino e rialloco array di mosse
     */
-    free(percorso);
+    if(percorso != NULL) free(percorso);
     num_mosse = calcDist(mc_ped_squadra[ind_ped_sq].pos_attuale, mc_ped_squadra[ind_ped_sq].obiettivo);
     percorso = (coord *) calloc(num_mosse, sizeof(coord));
     
@@ -133,14 +134,16 @@ void calcPercorso() {
         cont = percorso[i];
     }
 
+    token_round = semctl(token_gioc, pos_token, GETVAL, 0);
+
     /* msg send fine calcolo percorso a giocatore prima di inizio round */
-    if(semctl(token_gioc, pos_token, GETVAL, 0)) {
-        msg_fine_perc.mtype = (long) getpid() + MSG_PERCORSO;
+    if(token_round) {
+        msg_fine_perc.mtype = (long) (getpid() + MSG_PERCORSO);
         msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
         TEST_ERROR;
 
         #if DEBUG
-        printf("ped %d: msg fine calc percorso a gioc %d\n", (ind_ped_sq + 1), (pos_token + 1));
+        /* printf("ped %d: msg fine calc percorso a gioc %d\n", (ind_ped_sq + 1), token_round); */
         #endif
     }
 
@@ -155,6 +158,8 @@ void calcPercorso() {
             , percorso[i].y);
     */
     #endif
+
+    return num_mosse;
 }
 
 int muoviPedina(int dim, int ind_ped_sq){
@@ -173,12 +178,17 @@ int muoviPedina(int dim, int ind_ped_sq){
 
             /* prova ad eseguire mossa subito */
             if(semop(sem_id_scac, &sops, 1) == -1) {
+                TEST_ERROR;
+
                 arg_sleep.tv_sec = 0;
                 arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC / 2;
 
                 /* riprova dopo (SO_MIN_HOLD_NSEC / 2) se non riesce al primo tentativo */
-                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
+                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1) {
+                    TEST_ERROR;
+
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
+                }
                 else aggiornaStato(ind_ped_sq, ind_mossa);
             } else aggiornaStato(ind_ped_sq, ind_mossa);
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
@@ -187,6 +197,8 @@ int muoviPedina(int dim, int ind_ped_sq){
     return band_presa;
 }
 
+
+// TODO fixare dato che funziona per i primi round poi non aggiorna caratteri
 void aggiornaStato(int ind_ped_sq, int ind_mossa) {
     struct sembuf sops;
     struct timespec arg_sleep;
@@ -199,6 +211,7 @@ void aggiornaStato(int ind_ped_sq, int ind_mossa) {
     sops.sem_op = 1;
     sops.sem_flg = 0;
     semop(sem_id_scac, &sops, 1);
+    TEST_ERROR;
     
     mc_ped_squadra[ind_ped_sq].pos_attuale = percorso[ind_mossa];
     mc_ped_squadra[ind_ped_sq].mosse_rim = mc_ped_squadra[ind_ped_sq].mosse_rim - 1;
@@ -248,3 +261,5 @@ void getConfig(char *mode) {
 
     fclose(fs);
 }
+
+// TODO handler alarm con detach e exit

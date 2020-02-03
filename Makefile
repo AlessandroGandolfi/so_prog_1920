@@ -8,7 +8,8 @@ buildall: master giocatore pedina
 clean:
 	rm -f *o master giocatore pedina *~
 	ipcrm -a
-	pkill -f ./
+	pkill -f ./pedina
+	pkill -f ./giocatore
 
 master: master.c header.h Makefile
 	gcc $(cflags) master.c -o master

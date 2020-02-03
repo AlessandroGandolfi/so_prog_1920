@@ -393,22 +393,10 @@ void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
     TEST_ERROR;
 
     for(i = 0; i < SO_NUM_P; i++) {
-        #if DEBUG
-        // printf("gioc %d: ped %d band id %d\n", (pos_token + 1), (i + 1), mc_ped_squadra[i].id_band);
-        #endif
-
         if(mc_ped_squadra[i].id_band != -1) {
-            #if DEBUG
-            printf("AAAAAAAAgioc %d: ped %d band id %d\n", (pos_token + 1), (i + 1), mc_ped_squadra[i].id_band);
-            #endif
-
             msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
             msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
             TEST_ERROR;
-      
-            #if DEBUG
-            printf("gioc %d: calcolo percorsi ped %d in corso; val token: %d\n", (pos_token + 1), (i + 1), token_round);
-            #endif
 
             /* 
             msg per assicurarsi che prima dell'inizio di 
@@ -416,22 +404,9 @@ void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
             calcolino il proprio percorso
             */
             if(token_round) {
-                // msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (pids_pedine[i] + MSG_PERCORSO), 0);
-                // TEST_ERROR;
-
-                #if DEBUG
-                printf("gioc %d: calcolo percorsi inizio round ped %d eseguito\n", (pos_token + 1), (i + 1));
-                #endif
+                msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (pids_pedine[i] + MSG_PERCORSO), 0);
+                TEST_ERROR;
             }
-
-            #if DEBUG
-            /*
-            printf("gioc %d: band %d %d\n"
-                , (pos_token + 1)
-                , mc_ped_squadra[i].obiettivo.y
-                , mc_ped_squadra[i].obiettivo.x);
-            */
-            #endif
         }
     }
 
@@ -447,7 +422,7 @@ void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
 }
 
 void sqOrNem(int *ped_sq, int *ped_nem, int pos_token, coord check, int token_round, int index, int mosse_richieste) {
-    if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0'))
+    if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) // TODO controllo assegnazione una sola pedina se non ci sono nemiche, aggiuntivo
         *ped_sq = assegnaObiettivo(check, index, mosse_richieste);
     else if(mc_char_scac[INDEX(check)] != 'B' 
         && mc_char_scac[INDEX(check)] != '0'
@@ -481,6 +456,10 @@ int assegnaObiettivo(coord pos_ped_sq, int id_band, int mosse_richieste) {
 
     return TRUE;
 }
+
+// TODO handler nuovo obiettivo che richiama prima initObiettivi() poi gestRound()
+
+// TODO handler alarm con detach e exit
 
 #if DEBUG
 void testConfig() {
