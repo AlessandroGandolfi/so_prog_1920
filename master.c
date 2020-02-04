@@ -398,8 +398,10 @@ int initBandiere(int token_gioc, int num_round) {
     semun sem_arg;
     coord casella;
 
-    tot_punti_rim = SO_ROUND_SCORE;
     num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN + 1)) + SO_FLAG_MIN;
+
+    /* valgono tutte almeno un punto */
+    tot_punti_rim = SO_ROUND_SCORE - num_band;
 
     printf("%d bandiere piazzate\n", num_band);
 
@@ -447,6 +449,8 @@ int initBandiere(int token_gioc, int num_round) {
         else
             mc_bandiere[i].punti = tot_punti_rim;
         tot_punti_rim -= mc_bandiere[i].punti;
+        /* valgono almeno un punto */
+        mc_bandiere[i].punti++;
 
         /* piazzamento bandiere su scacchiera */
         mc_char_scac[INDEX(casella)] = 'B';

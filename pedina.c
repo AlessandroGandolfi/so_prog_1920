@@ -76,10 +76,8 @@ int waitObj() {
     msg_conf msg_obiettivo;
 
     /* ricezione messaggio con id di mc con bandiere */
-    do {
-        msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0);
-        TEST_ERROR;
-    } while(mc_ped_squadra[ind_ped_sq].id_band == -1);
+    msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0);
+    TEST_ERROR;
 
     #if DEBUG
     printf("ped %d: msg obiettivo %d ricevuto\n", (ind_ped_sq + 1), (mc_ped_squadra[ind_ped_sq].id_band));
@@ -178,18 +176,14 @@ int muoviPedina(int dim, int ind_ped_sq){
 
             /* prova ad eseguire mossa subito */
             if(semop(sem_id_scac, &sops, 1) == -1) {
-                TEST_ERROR;
-
                 arg_sleep.tv_sec = 0;
                 arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC / 2;
 
                 /* riprova dopo (SO_MIN_HOLD_NSEC / 2) se non riesce al primo tentativo */
-                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1) {
-                    TEST_ERROR;
-
+                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
-                }
                 else aggiornaStato(ind_ped_sq, ind_mossa);
+                
             } else aggiornaStato(ind_ped_sq, ind_mossa);
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
