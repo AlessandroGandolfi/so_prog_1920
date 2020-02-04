@@ -160,6 +160,7 @@ int calcPercorso() {
     return num_mosse;
 }
 
+// TODO semop non sempre funzionano per sincronizzazione, piú pedine prendono stessa bandiera
 int muoviPedina(int dim, int ind_ped_sq){
     int ind_mossa, band_presa;
     struct sembuf sops;
@@ -183,7 +184,7 @@ int muoviPedina(int dim, int ind_ped_sq){
                 if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
                 else aggiornaStato(ind_ped_sq, ind_mossa);
-                
+
             } else aggiornaStato(ind_ped_sq, ind_mossa);
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
@@ -191,8 +192,6 @@ int muoviPedina(int dim, int ind_ped_sq){
     return band_presa;
 }
 
-
-// TODO fixare dato che funziona per i primi round poi non aggiorna caratteri
 void aggiornaStato(int ind_ped_sq, int ind_mossa) {
     struct sembuf sops;
     struct timespec arg_sleep;
@@ -208,7 +207,7 @@ void aggiornaStato(int ind_ped_sq, int ind_mossa) {
     TEST_ERROR;
     
     mc_ped_squadra[ind_ped_sq].pos_attuale = percorso[ind_mossa];
-    mc_ped_squadra[ind_ped_sq].mosse_rim = mc_ped_squadra[ind_ped_sq].mosse_rim - 1;
+    mc_ped_squadra[ind_ped_sq].mosse_rim--;
 
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
