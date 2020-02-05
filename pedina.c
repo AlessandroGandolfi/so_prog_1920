@@ -1,35 +1,16 @@
-/* 
-i movimenti vengono decisi dalla pedina una volta che le viene assegnato un obiettivo dal giocatore
-si puó usare lista per salvare movimenti da eseguire
-    una volta eseguito un movimento viene eliminato dalla lista
-se la pedina incontra un ostacolo puó decidere di ricalcolare il percorso o aspettare
-    ricalcolo consigliato per evitare pedina senza mosse di altri giocatori
-        deviazione del percorso sempre verso il centro della scacchiera
-    semtimedop ogni 3 (?) ricalcoli
-se la pedina non puó raggiungere piú il proprio obiettivo aspetta che il giocatore gliene assegni un altro
-    il giocatore potrebbe ridare lo stesso obiettivo se
-        non é stata reclamata
-            pedina (qualsiasi) solo di passaggio
-        la pedina non ha abbastanza mosse rimanenti da raggiungerne un'altra
-            potrebbe ostacolare pedine nemiche
-se la pedina finisce su una bandierina non obiettivo si ferma su di essa se
-    non é l'unica pedina verso il proprio obiettivo
-    vale di piú di quella obiettivo (improbabile ?)
-    ce n'era un altro ma mi sono dimenticato
-se non ha abbastanza mosse per raggiungere nessun obiettivo rimane ferma
-*/
-
 #include "header.h"
 
-void waitObj();
-void calcPercorso();
+int waitObj();
+int calcPercorso();
 int muoviPedina(int, int);
 void aggiornaStato(int, int);
 
-/* globali */
+/* globali ipc */
 ped *mc_ped_squadra;
 char *mc_char_scac;
-int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac, ind_ped_sq, pos_token;
+int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
+/* globali ped */
+int ind_ped_sq, pos_token, token_gioc;
 coord *percorso;
 
 /* 
@@ -42,47 +23,76 @@ parametri a pedine
 5 - id mc squadra, array pedine
 6 - indice identificativo pedina dell'array in mc squadra
 7 - id coda msg
+8 - pid master
+9 - id mem cond scacchiera caratteri
 */
 int main(int argc, char **argv) {
+    struct sembuf sops;
+    long pid_master;
+    msg_band_presa msg_presa;
+    int num_mosse;
+
+    token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
+    sem_id_scac = atoi(argv[4]);
     mc_id_squadra = atoi(argv[5]);
     ind_ped_sq = atoi(argv[6]);
     msg_id_coda = atoi(argv[7]);
+    pid_master = atol(argv[8]);
+    mc_id_scac = atoi(argv[9]);
 
     getConfig(argv[1]);
 
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
+    mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
 
     do {
-        waitObj();
+        num_mosse = waitObj();
 
-        /* wait for zero true */
+        /* bloccate fino a quando round non é in corso */
+        sops.sem_num = pos_token;
+        sops.sem_op = 0;
+        sops.sem_flg = 0;
+        semop(token_gioc, &sops, 1);
 
-        if(muoviPedina) {
-            // segnale bandiera presa
-        } else {
-            // segnale nuovo obiettivo
+        if(muoviPedina(num_mosse, ind_ped_sq)) {
+            msg_presa.id_band = mc_ped_squadra[ind_ped_sq].id_band;
+            msg_presa.pos_token = pos_token;
+            msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
+            /* msg a master per bandiera presa */
+            msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
         }
-
+        
+        // TODO segnale nuovo obiettivo
+        kill(getppid(), SIGUSR1);
+        
     } while(TRUE);
+
+    shmdt(mc_ped_squadra);
+    TEST_ERROR;
 
     exit(EXIT_SUCCESS);
 }
 
-void waitObj() {
-    msg_new_obj msg_obj;
+int waitObj() {
+    msg_conf msg_obiettivo;
 
     /* ricezione messaggio con id di mc con bandiere */
-    msgrcv(msg_id_coda, &msg_obj, sizeof(msg_new_obj) - sizeof(long), getpid(), 0);
+    msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0);
     TEST_ERROR;
+
+    #if DEBUG
+    printf("ped %d: msg obiettivo %d ricevuto\n", (ind_ped_sq + 1), (mc_ped_squadra[ind_ped_sq].id_band));
+    #endif
     
     /* solo quelle con obiettivo ricevono il messaggio */
-    calcPercorso();    
+    return calcPercorso();    
 }
 
-void calcPercorso() {
-    int i, num_mosse;
+int calcPercorso() {
+    int i, num_mosse, token_round;
     coord cont;
+    msg_conf msg_fine_perc;
 
     /* 
     nel caso di bandierina o casella occupata nel corso del round
@@ -124,17 +134,35 @@ void calcPercorso() {
         cont = percorso[i];
     }
 
+    token_round = semctl(token_gioc, pos_token, GETVAL, 0);
+
+    /* msg send fine calcolo percorso a giocatore prima di inizio round */
+    if(token_round) {
+        msg_fine_perc.mtype = (long) (getpid() + MSG_PERCORSO);
+        msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
+        TEST_ERROR;
+
+        #if DEBUG
+        /* printf("ped %d: msg fine calc percorso a gioc %d\n", (ind_ped_sq + 1), token_round); */
+        #endif
+    }
+
     #if DEBUG
-    for(i = 0; i < num_mosse; i++) {
-        printf("ped: %d, %d, coord: %d %d\n"
+    /*
+    for(i = 0; i < num_mosse; i++)
+        printf("ped %d: %d, %d, coord: %d %d\n"
+            , ind_ped_sq
             , mc_ped_squadra[ind_ped_sq].pos_attuale.x
             , mc_ped_squadra[ind_ped_sq].pos_attuale.y
             , percorso[i].x
             , percorso[i].y);
-    }
+    */
     #endif
+
+    return num_mosse;
 }
 
+// TODO semop non sempre funzionano per sincronizzazione, piú pedine prendono stessa bandiera
 int muoviPedina(int dim, int ind_ped_sq){
     int ind_mossa, band_presa;
     struct sembuf sops;
@@ -158,9 +186,9 @@ int muoviPedina(int dim, int ind_ped_sq){
                 if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
                 else aggiornaStato(ind_ped_sq, ind_mossa);
-            }
-            else aggiornaStato(ind_ped_sq, ind_mossa);
-        } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene suo obiettivo */
+
+            } else aggiornaStato(ind_ped_sq, ind_mossa);
+        } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
 
     return band_presa;
@@ -178,6 +206,7 @@ void aggiornaStato(int ind_ped_sq, int ind_mossa) {
     sops.sem_op = 1;
     sops.sem_flg = 0;
     semop(sem_id_scac, &sops, 1);
+    TEST_ERROR;
     
     mc_ped_squadra[ind_ped_sq].pos_attuale = percorso[ind_mossa];
     mc_ped_squadra[ind_ped_sq].mosse_rim--;
@@ -202,7 +231,7 @@ void getConfig(char *mode) {
     strcat(config_file, ".txt");
     
     #if DEBUG
-    printf("path file conf: %s\n", config_file);
+    /* printf("path file conf: %s\n", config_file); */
     #endif
 
     fs = fopen(config_file, "r");
@@ -227,3 +256,5 @@ void getConfig(char *mode) {
 
     fclose(fs);
 }
+
+// TODO handler alarm con detach e exit

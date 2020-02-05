@@ -1,12 +1,3 @@
-#define _GNU_SOURCE
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -26,7 +17,13 @@ flag opzionali
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
 #define DEBUG 1
+#define PRINT_SCAN 0
 #define ENABLE_COLORS 1
+
+#define MSG_OBIETTIVO 11111
+#define MSG_PERCORSO 22222
+#define MSG_BANDIERA 33333
+#define MSG_PIAZZAMENTO 44444
 
 #define INDEX(coord) (coord.y * SO_BASE) + coord.x
 
@@ -82,13 +79,18 @@ typedef struct _msg_bandiera {
     int num_band;
 } msg_band;
 
-/* messaggio usato per segnalare assegnazione nuovo obiettivo */
-typedef struct _msg_nuovo_obiettivo {
+/* messaggio usato per segnalare una bandiera presa */
+typedef struct _msg_bandiera_presa {
     long mtype;
-    int band_assegnata;
-} msg_new_obj;
+    int id_band;
+    int pos_token;
+} msg_band_presa;
 
-/* messaggio usato per segnalare fine piazzamento */
+/* 
+messaggio di conferma generale usato per
+    fine piazzamento pedine da giocatore a master
+    fine calcolo percorso da pedine a giocatore
+*/
 typedef struct _msg_conferma {
     long mtype;
 } msg_conf;

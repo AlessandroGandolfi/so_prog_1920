@@ -1,30 +1,21 @@
-/*
-il giocatore cerca di conquistare le pedine che
-    valgono di piú
-    sono piú vicine
-pedine distribuite con spazio tra di esse
-le indicazioni del giocatore consistono solo nel dare l'obiettivo da raggiungere alle pedine
-nel caso venga segnalato che una bandierina é stata presa il giocatore
-    controlla che abbia assegnato delle pedine a quella bandiera e chi l'ha presa
-        se nemico puó far continuare avanzamento delle pedine
-        se propria pedina assegna nuovo obiettivo
-*/
 #include "header.h"
 
 void initPedine(int, int, char *);
 void piazzaPedina(int, int);
 int checkPosPedine(coord);
+void gestRound(int, int, int);
 void initObiettivi(int, int, int);
 int assegnaObiettivo(coord, int, int);
 void sqOrNem(int *, int *, int, coord, int, int, int);
+void handler_g(int);
 
 /* globali */
 ped *mc_ped_squadra;
 char *mc_char_scac;
 band *mc_bandiere;
-int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
+int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac, mc_id_bandiere, num_band_round;
 pid_t *pids_pedine;
-
+int token_gioc, pos_token;
 /* 
 parametri a giocatore
 0 - path relativo file giocatore
@@ -38,7 +29,9 @@ parametri a giocatore
 */
 int main(int argc, char **argv) {
     int status, i;
-    int token_gioc, pos_token, mc_id_band, num_band;
+    int  mc_id_band;
+    struct sigaction act,oldact;
+    sigset_t my_mask;
 
     getConfig(argv[1]);
 
@@ -58,11 +51,18 @@ int main(int argc, char **argv) {
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
     TEST_ERROR;
 
+    sigemptyset(&my_mask);
+    act.sa_handler=&handler_g;
+    act.sa_mask=my_mask;
+    act.sa_flags=0;
+    sigaction(SIGUSR1, &act, &oldact);
+
     /* creazione pedine, valorizzazione pids_pedine */
     initPedine(token_gioc, pos_token, argv[1]);
 
-    /* assegnazione obiettivi */
-    initObiettivi(msg_id_coda, token_gioc, pos_token);
+    gestRound(msg_id_coda, token_gioc, pos_token);
+
+    
 
     /* attesa terminazione di tutte le pedine */
     while(wait(&status) > 0);
@@ -127,8 +127,8 @@ param:
 */
 void initPedine(int token_gioc, int pos_token, char *mode) {
     int i;
-    char *param_pedine[9];
-    char tmp_params[6][sizeof(char *)];
+    char *param_pedine[11];
+    char tmp_params[8][sizeof(char *)];
     struct sembuf sops;
     msg_conf avviso_master;
 
@@ -144,6 +144,8 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
     5 - id mc squadra, array pedine
     6 - indice identificativo pedina dell'array in mc squadra
     7 - id coda msg
+    8 - pid master
+    9 - id mem cond scacchiera caratteri
     */
     param_pedine[0] = "./pedina";
     param_pedine[1] = mode;
@@ -157,7 +159,11 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
     param_pedine[5] = tmp_params[3];
     sprintf(tmp_params[5], "%d", msg_id_coda);
     param_pedine[7] = tmp_params[5];
-    param_pedine[8] = NULL;
+    sprintf(tmp_params[6], "%ld", (long) getppid());
+    param_pedine[8] = tmp_params[6];
+    sprintf(tmp_params[7], "%d", mc_id_scac);
+    param_pedine[9] = tmp_params[7];
+    param_pedine[10] = NULL;
     
     /* pedine ancora non piazzate con coord -1, -1 */
     for(i = 0; i < SO_NUM_P; i++) {
@@ -186,12 +192,12 @@ void initPedine(int token_gioc, int pos_token, char *mode) {
         che piazzerá a sua volta le bandierine, non rilascia primo token
         */
         if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
-        	avviso_master.mtype = (long) getpid();
+        	avviso_master.mtype = (long) getpid() + MSG_PIAZZAMENTO;
             msgsnd(msg_id_coda, &avviso_master, sizeof(msg_conf) - sizeof(long), 0);
             TEST_ERROR;
 
             #if DEBUG
-            printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", pos_token, (long) getpid(), i, msg_id_coda);
+            printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", (pos_token + 1), (long) getpid(), i, msg_id_coda);
             #endif
         } else {
             sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
@@ -301,34 +307,51 @@ int calcDist(coord cas1, coord cas2) {
     return distanza;
 }
 
-/* TODO */
-void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
+void gestRound(int msg_id_coda, int token_gioc, int pos_token) {
     msg_band msg_new_band;
-    msg_new_obj msg_obj;
-    int i, j, num_band, riga, range_scan, ped_sq, ped_nem, token_round;
+
+    do {
+        #if DEBUG
+        printf("gioc %d: ricezione msg band\n", (pos_token + 1));
+        #endif
+        
+        /* ricezione messaggio con id di mc con bandiere */
+        msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
+        TEST_ERROR;
+
+        mc_id_bandiere = msg_new_band.ind;
+        num_band_round = msg_new_band.num_band;
+
+        #if DEBUG
+        printf("gioc %d: messaggio fine band ricevuto %d\n", (pos_token + 1), mc_id_bandiere);
+        #endif
+
+        /* assegnazione obiettivi */
+        initObiettivi(msg_id_coda, token_gioc, pos_token);
+
+    } while(TRUE);
+}
+
+void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
+    msg_conf msg_perc, msg_obiettivo;
+    int i, j, riga, range_scan, ped_sq, ped_nem, token_round;
     coord check;
+
+    mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
+    TEST_ERROR;
+
+    #if DEBUG
+    printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), mc_id_bandiere);
+    #endif
 
     /*
     controlla se round é in corso
     se é in corso non tiene conto di pedine nemiche
+    e non aspetta risposta da pedine della squadra
     */
     token_round = semctl(token_gioc, pos_token, GETVAL, 0);
 
-    // --------------------------SPOSTARE--------------------------
-
-    /* ricezione messaggio con id di mc con bandiere */
-    msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) getppid(), 0);
-    TEST_ERROR;
-
-    #if DEBUG
-    printf("gioc %d: messaggio fine band ricevuto\n", (pos_token + 1));
-    #endif
-
-    mc_bandiere = (band *) shmat(msg_new_band.ind, NULL, 0);
-
-    // ----------------------------------------------------
-
-    for(i = 0; i < msg_new_band.num_band; i++) {
+    for(i = 0; i < num_band_round; i++) {
         if(!mc_bandiere[i].presa) {
             ped_sq = FALSE;
             ped_nem = FALSE;
@@ -377,38 +400,51 @@ void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
         }
     }
 
+    shmdt(mc_bandiere);
+    TEST_ERROR;
+
     for(i = 0; i < SO_NUM_P; i++) {
-        if(mc_ped_squadra[i].obiettivo.x != -1) {
-            msg_obj.mtype = (long) pids_pedine[i];
-            msgsnd(msg_id_coda, &msg_obj, sizeof(msg_new_obj) - sizeof(long), 0);
+        if(mc_ped_squadra[i].id_band != -1) {
+            msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
+            msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
             TEST_ERROR;
 
-            #if DEBUG
-            printf("gioc %d: band %d %d\n"
-                , (pos_token + 1)
-                , mc_ped_squadra[i].obiettivo.y
-                , mc_ped_squadra[i].obiettivo.x);
-            #endif
+            /* 
+            msg per assicurarsi che prima dell'inizio di 
+            un round tutte le pedine con un obiettivo
+            calcolino il proprio percorso
+            */
+            if(token_round) {
+                msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (pids_pedine[i] + MSG_PERCORSO), 0);
+                TEST_ERROR;
+            }
         }
     }
 
-    // --------------------------SPOSTARE--------------------------
-    shmdt(mc_bandiere);
+    /* msg a master fine calcolo percorsi per inizio round */
+    if(token_round) {
+        msg_perc.mtype = (long) getppid() + MSG_PERCORSO;
+        msgsnd(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), 0);
+
+        #if DEBUG
+        printf("gioc %d: invio msg a master inizio round\n", (pos_token + 1));
+        #endif
+    }
 }
 
 void sqOrNem(int *ped_sq, int *ped_nem, int pos_token, coord check, int token_round, int index, int mosse_richieste) {
-    if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0'))
+    if(mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) // TODO controllo assegnazione una sola pedina se non ci sono nemiche, aggiuntivo
         *ped_sq = assegnaObiettivo(check, index, mosse_richieste);
     else if(mc_char_scac[INDEX(check)] != 'B' 
         && mc_char_scac[INDEX(check)] != '0'
         && token_round /* giocatore non tiene conto delle pedine nemiche se é in corso un round */
-        #if DEBUG
+        #if PRINT_SCAN
         && mc_char_scac[INDEX(check)] != '*'
         #endif
         )
         *ped_nem = TRUE;
 
-    #if DEBUG
+    #if PRINT_SCAN
     if(mc_char_scac[INDEX(check)] == '0') 
         mc_char_scac[INDEX(check)] = '*';
     #endif
@@ -421,9 +457,9 @@ int assegnaObiettivo(coord pos_ped_sq, int id_band, int mosse_richieste) {
 
     while(calcDist(mc_ped_squadra[i].pos_attuale, pos_ped_sq)) i++;
 
-    if(mc_ped_squadra[i].obiettivo.x != -1
-        && mc_bandiere[id_band].punti <= mc_bandiere[mc_ped_squadra[i].id_band].punti
-        && mc_ped_squadra[i].mosse_rim >= mosse_richieste) 
+    if((mc_ped_squadra[i].id_band != -1
+        && mc_bandiere[id_band].punti <= mc_bandiere[mc_ped_squadra[i].id_band].punti)
+        || mc_ped_squadra[i].mosse_rim < mosse_richieste) 
         return FALSE;
 
     mc_ped_squadra[i].obiettivo = mc_bandiere[id_band].pos_band;
@@ -431,6 +467,16 @@ int assegnaObiettivo(coord pos_ped_sq, int id_band, int mosse_richieste) {
 
     return TRUE;
 }
+
+// TODO handler nuovo obiettivo che richiama prima initObiettivi() poi gestRound()
+void handler_g(int sig){
+     if(sig==SIGUSR1){
+        initObiettivi(msg_id_coda, token_gioc,pos_token);
+        gestRound(msg_id_coda, token_gioc,pos_token);
+         return;
+     }
+}
+// TODO handler alarm con detach e exit
 
 #if DEBUG
 void testConfig() {
