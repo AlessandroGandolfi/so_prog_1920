@@ -7,6 +7,7 @@ void gestRound(int, int, int);
 void initObiettivi(int, int, int);
 int assegnaObiettivo(coord, int, int);
 void sqOrNem(int *, int *, int, coord, int, int, int);
+void handler_g(int);
 
 /* globali */
 ped *mc_ped_squadra;
@@ -14,6 +15,7 @@ char *mc_char_scac;
 band *mc_bandiere;
 int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac, mc_id_bandiere, num_band_round;
 pid_t *pids_pedine;
+int token_gioc, pos_token;
 
 /* 
 parametri a giocatore
@@ -28,7 +30,10 @@ parametri a giocatore
 */
 int main(int argc, char **argv) {
     int status, i;
-    int token_gioc, pos_token, mc_id_band;
+    int mc_id_band;
+    struct sigaction act, oldact;
+    sigset_t my_mask;
+    
 
     getConfig(argv[1]);
 
@@ -47,6 +52,12 @@ int main(int argc, char **argv) {
 
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
     TEST_ERROR;
+
+    sigemptyset(&my_mask);
+    act.sa_handler=&handler_g;
+    act.sa_mask=my_mask;
+    act.sa_flags=0;
+    sigaction(SIGUSR1, &act, &oldact);
 
     /* creazione pedine, valorizzazione pids_pedine */
     initPedine(token_gioc, pos_token, argv[1]);
@@ -458,7 +469,13 @@ int assegnaObiettivo(coord pos_ped_sq, int id_band, int mosse_richieste) {
 }
 
 // TODO handler nuovo obiettivo che richiama prima initObiettivi() poi gestRound()
-
+void handler_g(int sig){
+    if(sig==SIGUSR1){
+        initObiettivi(msg_id_coda,token_gioc,pos_token);
+        gestRound(msg_id_coda,token_gioc,pos_token);
+        return;
+    }
+}
 // TODO handler alarm con detach e exit
 
 #if DEBUG

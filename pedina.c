@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
         }
         
         // TODO segnale nuovo obiettivo
+        kill(getppid(),SIGUSR1);
     } while(TRUE);
 
     shmdt(mc_ped_squadra);
