@@ -22,10 +22,13 @@
 
 /* 
 flag opzionali 
-- DEBUG per stampare piú informazioni
+- DEBUG per stampare piú informazioni generali
+- DEBUG_BAND_EASY info riguardo bandiere prese e punteggio (solo in easy)
+- PRINT_SCAN vedere area scan per assegnazione obiettivi
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
 #define DEBUG 1
+#define DEBUG_BAND_EASY 1
 #define PRINT_SCAN 0
 #define ENABLE_COLORS 1
 

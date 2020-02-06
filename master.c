@@ -68,12 +68,17 @@ int main(int argc, char **argv) {
             msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
             TEST_ERROR;
 
-            #if DEBUG
-            printf("band %d presa da gioc %d, %d punti\n", msg_presa.id_band, (msg_presa.pos_token + 1), mc_bandiere[msg_presa.id_band].punti);
-            #endif
+            if(!mc_bandiere[msg_presa.id_band].presa) {
+                #if DEBUG
+                printf("band %d presa da gioc %d, %d punti\n"
+                    , msg_presa.id_band
+                    , (msg_presa.pos_token + 1)
+                    , mc_bandiere[msg_presa.id_band].punti);
+                #endif
 
-            mc_bandiere[msg_presa.id_band].presa = TRUE;
-            giocatori[msg_presa.pos_token].punteggio += mc_bandiere[msg_presa.id_band].punti;
+                mc_bandiere[msg_presa.id_band].presa = TRUE;
+                giocatori[msg_presa.pos_token].punteggio += mc_bandiere[msg_presa.id_band].punti;
+            } else i--;
         }
 
         for(i = 0; i < SO_NUM_G; i++)
@@ -284,6 +289,12 @@ void stampaScacchiera(int num_round) {
             case '4':
                 printf("\033[1;36m");
                 break;
+            #if DEBUG_BAND_EASY
+            case 'A':
+            case 'C':
+            case 'D':
+            case 'E':
+            #endif
             case 'B':
                 printf("\033[0;33m");
                 break;
@@ -454,6 +465,10 @@ int initBandiere(int token_gioc, int num_round) {
 
         /* piazzamento bandiere su scacchiera */
         mc_char_scac[INDEX(casella)] = 'B';
+
+        #if DEBUG_BAND_EASY
+        mc_char_scac[INDEX(casella)] = (i + 'A');
+        #endif
     }
 
     #if DEBUG

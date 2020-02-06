@@ -161,33 +161,46 @@ int calcPercorso() {
 }
 
 // TODO semop non sempre funzionano per sincronizzazione, piú pedine prendono stessa bandiera
-int muoviPedina(int dim, int ind_ped_sq){
+int muoviPedina(int dim, int ind_ped_sq) {
     int ind_mossa, band_presa;
     struct sembuf sops;
     struct timespec arg_sleep;
 
     band_presa = TRUE;
 
-    for(ind_mossa = 0; ind_mossa < dim && band_presa; ind_mossa++){
+    mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0';
+
+    for(ind_mossa = 0; ind_mossa < dim && band_presa; ind_mossa++) {
         /* prima di ogni mossa controlla dalla scacchiera che l'obiettivo non sia stato giá preso */
-        if(mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].obiettivo)] == 'B') {
+        if(mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].obiettivo)] == 'B'
+            #if DEBUG_BAND_EASY
+            || mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].obiettivo)] == (mc_ped_squadra[ind_ped_sq].id_band + 'A')
+            #endif
+        ) {
             sops.sem_num = INDEX(percorso[ind_mossa]);
             sops.sem_op = -1;
             sops.sem_flg = IPC_NOWAIT;
 
             /* prova ad eseguire mossa subito */
             if(semop(sem_id_scac, &sops, 1) == -1) {
+                TEST_ERROR;
+
                 arg_sleep.tv_sec = 0;
                 arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC / 2;
 
                 /* riprova dopo (SO_MIN_HOLD_NSEC / 2) se non riesce al primo tentativo */
-                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
+                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1) {
+                    TEST_ERROR;
+
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
+                }
                 else aggiornaStato(ind_ped_sq, ind_mossa);
 
             } else aggiornaStato(ind_ped_sq, ind_mossa);
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
+
+    mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = (pos_token + 1) + '0';
 
     return band_presa;
 }
@@ -195,9 +208,6 @@ int muoviPedina(int dim, int ind_ped_sq){
 void aggiornaStato(int ind_ped_sq, int ind_mossa) {
     struct sembuf sops;
     struct timespec arg_sleep;
-
-    mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0';
-    mc_char_scac[INDEX(percorso[ind_mossa])] = (pos_token + 1) + '0';
 
     /* libera risorsa precedente */
     sops.sem_num = INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale);
