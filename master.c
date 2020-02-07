@@ -57,8 +57,6 @@ int main(int argc, char **argv) {
 
         printf("-----------------START-----------------\n");
 
-        sleep(1);
-
         stampaScacchiera(num_round);
         
         semctl(token_gioc, 0, SETALL, sem_arg);
@@ -86,8 +84,6 @@ int main(int argc, char **argv) {
 
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
-
-        sleep(1);
 
         stampaScacchiera(num_round);
         

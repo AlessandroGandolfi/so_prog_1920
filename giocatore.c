@@ -298,6 +298,7 @@ int calcDist(coord cas1, coord cas2) {
 
 void gestRound(int msg_id_coda, int token_gioc, int pos_token) {
     msg_band msg_new_band;
+    int i;
 
     do {
         #if DEBUG
@@ -305,11 +306,19 @@ void gestRound(int msg_id_coda, int token_gioc, int pos_token) {
         #endif
         
         /* ricezione messaggio con id di mc con bandiere */
-        msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
-        TEST_ERROR;
+        do {
+            TEST_ERROR;
+            msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
+        } while(errno == EINTR);
 
         mc_id_bandiere = msg_new_band.ind;
         num_band_round = msg_new_band.num_band;
+
+        for(i = 0; i < SO_NUM_P; i++) {
+            mc_ped_squadra[i].obiettivo.x = -1;
+            mc_ped_squadra[i].obiettivo.y = -1;
+            mc_ped_squadra[i].id_band = -1;
+        }
 
         #if DEBUG
         printf("gioc %d: messaggio fine band ricevuto %d\n", (pos_token + 1), mc_id_bandiere);
@@ -395,8 +404,10 @@ void initObiettivi(int msg_id_coda, int token_gioc, int pos_token) {
     for(i = 0; i < SO_NUM_P; i++) {
         if(mc_ped_squadra[i].id_band != -1) {
             msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
-            msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
-            TEST_ERROR;
+            do {
+                TEST_ERROR;
+                msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
+            } while(errno == EINTR);
 
             /* 
             msg per assicurarsi che prima dell'inizio di 

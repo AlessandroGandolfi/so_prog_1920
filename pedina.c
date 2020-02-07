@@ -66,6 +66,9 @@ int main(int argc, char **argv) {
         // TODO segnale nuovo obiettivo
     } while(TRUE);
 
+    shmdt(mc_char_scac);
+    TEST_ERROR;
+    
     shmdt(mc_ped_squadra);
     TEST_ERROR;
 
@@ -160,7 +163,6 @@ int calcPercorso() {
     return num_mosse;
 }
 
-// TODO semop non sempre funzionano per sincronizzazione, piú pedine prendono stessa bandiera
 int muoviPedina(int dim, int ind_ped_sq) {
     int ind_mossa, band_presa;
     struct sembuf sops;
