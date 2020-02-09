@@ -5,11 +5,11 @@ int calcPercorso();
 int muoviPedina(int, int);
 void aggiornaStato(int, int);
 
-/* globali ipc */
+/* globali */
 ped *mc_ped_squadra;
 char *mc_char_scac;
+long pid_master;
 int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
-/* globali ped */
 int ind_ped_sq, pos_token, token_gioc;
 coord *percorso;
 
@@ -27,11 +27,6 @@ parametri a pedine
 9 - id mem cond scacchiera caratteri
 */
 int main(int argc, char **argv) {
-    struct sembuf sops;
-    long pid_master;
-    msg_band_presa msg_presa;
-    int num_mosse;
-
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
     sem_id_scac = atoi(argv[4]);
@@ -46,33 +41,9 @@ int main(int argc, char **argv) {
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
 
-    do {
-        num_mosse = waitObj();
+    gestRound();
 
-        /* bloccate fino a quando round non é in corso */
-        sops.sem_num = pos_token;
-        sops.sem_op = 0;
-        sops.sem_flg = 0;
-        semop(token_gioc, &sops, 1);
-
-        if(muoviPedina(num_mosse, ind_ped_sq)) {
-            msg_presa.id_band = mc_ped_squadra[ind_ped_sq].id_band;
-            msg_presa.pos_token = pos_token;
-            msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
-            /* msg a master per bandiera presa */
-            msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
-        }
-        
-        // TODO segnale nuovo obiettivo
-    } while(TRUE);
-
-    shmdt(mc_char_scac);
-    TEST_ERROR;
-    
-    shmdt(mc_ped_squadra);
-    TEST_ERROR;
-
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 int waitObj() {
@@ -267,4 +238,39 @@ void getConfig(char *mode) {
     fclose(fs);
 }
 
-// TODO handler alarm con detach e exit
+void gestRound() {
+    int num_mosse;
+    struct sembuf sops;
+    msg_band_presa msg_presa;
+
+    do {
+        num_mosse = waitObj();
+
+        /* bloccate fino a quando round non é in corso */
+        sops.sem_num = pos_token;
+        sops.sem_op = 0;
+        sops.sem_flg = 0;
+        semop(token_gioc, &sops, 1);
+
+        if(muoviPedina(num_mosse, ind_ped_sq)) {
+            msg_presa.id_band = mc_ped_squadra[ind_ped_sq].id_band;
+            msg_presa.pos_token = pos_token;
+            msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
+            /* msg a master per bandiera presa */
+            msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
+        }
+        
+        /* richiesta di un nuovo obiettivo una volta che pedine é di nuovo ferma */
+        kill(getppid(), SIGUSR1);
+    } while(TRUE);
+}
+
+void signalHandler(int signal_number) {
+    shmdt(mc_char_scac);
+    TEST_ERROR;
+    
+    shmdt(mc_ped_squadra);
+    TEST_ERROR;
+
+    exit(EXIT_SUCCESS);
+}

@@ -2,27 +2,25 @@
 
 void checkMode(int, char *);
 void initRisorse();
-int initGiocatori(char *);
+void initGiocatori(char *);
 void initSemScacchiera();
-void somebodyTookMaShmget(int);
+void somebodyTookMaShmget();
 void stampaScacchiera(int);
-int initBandiere(int, int);
+int initBandiere(int);
 int checkPosBandiere(coord, int);
 
 /* globali */
 gioc *giocatori;
 char *mc_char_scac;
 band *mc_bandiere;
-int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac;
+int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac, token_gioc;
 
 int main(int argc, char **argv) {
-    int status, i, token_gioc, num_band, num_round;
     msg_conf msg_ped;
-    msg_band_presa msg_presa;
-    semun sem_arg;
+    struct sigaction new_alrm_handler;
 
     checkMode(argc, argv[1]);
-    
+
     #if DEBUG
     testConfig();
     #endif
@@ -30,10 +28,13 @@ int main(int argc, char **argv) {
     /* time torna int secondi da mezzanotte primo gennaio 1970 */
     srand(time(NULL) + getpid());
 
+    new_alrm_handler.sa_handler = &signalHandler;
+    sigaction(SIGALRM, &new_alrm_handler, NULL);
+
     initRisorse();
 
     /* creazione giocatori, valorizzazione pids_giocatori */
-    token_gioc = initGiocatori(argv[1]);
+    initGiocatori(argv[1]);
 
     /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
     #if DEBUG
@@ -42,69 +43,7 @@ int main(int argc, char **argv) {
     msgrcv(msg_id_coda, &msg_ped, sizeof(msg_conf) - sizeof(long), (long) (giocatori[SO_NUM_G - 1].pid + MSG_PIAZZAMENTO), 0);
     TEST_ERROR;
 
-    /* usato per inizio e fine round */
-    sem_arg.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
-
-    num_round = 1;
-
-    // TODO controllare che ci siano tutte le periferiche e implementazione alarm
-    do {
-        /* creazione bandiere, valorizzazione array bandiere */
-        num_band = initBandiere(token_gioc, num_round);
-        
-        for(i = 0; i < SO_NUM_G; i++)
-            sem_arg.array[i] = 0;
-
-        printf("-----------------START-----------------\n");
-
-        stampaScacchiera(num_round);
-        
-        semctl(token_gioc, 0, SETALL, sem_arg);
-        TEST_ERROR;
-
-        for(i = 0; i < num_band; i++) {
-            msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
-            TEST_ERROR;
-
-            if(!mc_bandiere[msg_presa.id_band].presa) {
-                #if DEBUG
-                printf("band %d presa da gioc %d, %d punti\n"
-                    , msg_presa.id_band
-                    , (msg_presa.pos_token + 1)
-                    , mc_bandiere[msg_presa.id_band].punti);
-                #endif
-
-                mc_bandiere[msg_presa.id_band].presa = TRUE;
-                giocatori[msg_presa.pos_token].punteggio += mc_bandiere[msg_presa.id_band].punti;
-            } else i--;
-        }
-
-        for(i = 0; i < SO_NUM_G; i++)
-            sem_arg.array[i] = 1;
-
-        semctl(token_gioc, 0, SETALL, sem_arg);
-        TEST_ERROR;
-
-        stampaScacchiera(num_round);
-        
-        printf("------------------END------------------\n");
-        
-        num_round++;
-    } while(TRUE);
-
-    #if DEBUG
-    sleep(1);
-    stampaScacchiera(num_round);
-    #endif
-
-    // TODO rimuovere e inserire all'interno dell'handler dell'alarm
-    /* attesa terminazione di tutti i giocatori */
-    while(wait(&status) > 0);
-    TEST_ERROR;
-
-    // TODO stessa cosa di sopra
-    /* detach e rm mc, sem, msg */
-    somebodyTookMaShmget(token_gioc);
+    gestRound();
 
     return 0;
 }
@@ -214,10 +153,8 @@ void initSemScacchiera() {
 
 /* 
 eliminazione risorse (memorie condivise, coda msg, semafori, ...)
-param:
-- id semafori token giocatori
 */
-void somebodyTookMaShmget(int token_gioc) {
+void somebodyTookMaShmget() {
     int i;
 
     semctl(sem_id_scac, 0, IPC_RMID);
@@ -261,13 +198,17 @@ void stampaScacchiera(int num_round) {
         mc_ped_squadra = (ped *) shmat(giocatori[i].mc_id_squadra, NULL, 0);
         TEST_ERROR;
 
-        for(j = 0; j < SO_NUM_P; j++) {
+        for(j = 0; j < SO_NUM_P; j++)
             giocatori[i].tot_mosse_rim += mc_ped_squadra[j].mosse_rim;
-        }
 
         shmdt(mc_ped_squadra);
         TEST_ERROR;
     }
+
+    #if (defined (LINUX) || defined (__linux__) || defined (__APPLE__))
+    /* clear console, supportato solo su UNIX */
+    write(STDOUT_FILENO, "\e[1;1H\e[2J", 12);
+    #endif
 
     /* stampa matrice caratteri */
     for(i = 0; i < (SO_ALTEZZA * SO_BASE); i++) {
@@ -318,8 +259,8 @@ creazione ed esecuzione giocatori, creazione e valorizzazione token
 param:
 - modalitá selezionata
 */
-int initGiocatori(char *mode) {
-    int i, token_gioc;
+void initGiocatori(char *mode) {
+    int i;
     char *param_giocatori[9];
     char tmp_params[5][sizeof(char *)];
     semun sem_arg;
@@ -383,14 +324,72 @@ int initGiocatori(char *mode) {
                 execv("./giocatore", param_giocatori);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
+            default:
+                setpgid(giocatori[i].pid, 0);
+                TEST_ERROR;
+                break;
         }
     }
 
     #if DEBUG
     printf("master: fine creazione giocatori\n");
     #endif
+}
 
-    return token_gioc;
+void gestRound() {
+    int i, num_band, num_round;
+    msg_band_presa msg_presa;
+    semun sem_arg;
+
+    /* usato per inizio e fine round */
+    sem_arg.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
+
+    num_round = 1;
+
+    // TODO controllare che ci siano tutte le periferiche
+    do {
+        /* creazione bandiere, valorizzazione array bandiere */
+        num_band = initBandiere(num_round);
+        
+        for(i = 0; i < SO_NUM_G; i++)
+            sem_arg.array[i] = 0;
+
+        stampaScacchiera(num_round);
+        
+        alarm(SO_MAX_TIME);
+
+        semctl(token_gioc, 0, SETALL, sem_arg);
+        TEST_ERROR;
+
+        for(i = 0; i < num_band; i++) {
+            msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
+            TEST_ERROR;
+
+            if(!mc_bandiere[msg_presa.id_band].presa) {
+                #if DEBUG
+                printf("band %d presa da gioc %d, %d punti\n"
+                    , msg_presa.id_band
+                    , (msg_presa.pos_token + 1)
+                    , mc_bandiere[msg_presa.id_band].punti);
+                #endif
+
+                mc_bandiere[msg_presa.id_band].presa = TRUE;
+                giocatori[msg_presa.pos_token].punteggio += mc_bandiere[msg_presa.id_band].punti;
+            } else i--;
+        }
+
+        for(i = 0; i < SO_NUM_G; i++)
+            sem_arg.array[i] = 1;
+
+        semctl(token_gioc, 0, SETALL, sem_arg);
+        TEST_ERROR;
+
+        alarm(0);
+
+        stampaScacchiera(num_round);
+
+        num_round++;
+    } while(TRUE);
 }
 
 /*
@@ -398,7 +397,7 @@ piazzamento nuove bandiere e distribuzione loro punteggio
 param:
 - id token giocatori (usato successivamente per partenza round)
 */
-int initBandiere(int token_gioc, int num_round) {
+int initBandiere(int num_round) {
     int i, riga, colonna, tot_punti_rim, num_band;
     msg_band msg_new_band;
     msg_conf msg_perc;
@@ -468,7 +467,7 @@ int initBandiere(int token_gioc, int num_round) {
     }
 
     #if DEBUG
-    testSemToken(token_gioc);
+    testSemToken();
     #endif
 
     /* 
@@ -481,7 +480,7 @@ int initBandiere(int token_gioc, int num_round) {
     free(sem_arg.array);
 
     #if DEBUG
-    testSemToken(token_gioc);
+    testSemToken();
     #endif
 
     /* manda un messaggio per giocatore */
@@ -490,7 +489,7 @@ int initBandiere(int token_gioc, int num_round) {
         printf("master: invio id mc band %d a giocatore %d\n", mc_id_band, (i + 1));
         #endif
 
-        msg_new_band.num_band = num_band;
+        msg_new_band.id_band = num_band;
         msg_new_band.ind = mc_id_band;
         msg_new_band.mtype = (long) giocatori[i].pid + MSG_BANDIERA;
         msgsnd(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), 0);
@@ -559,9 +558,28 @@ int calcDist(coord cas1, coord cas2) {
     return distanza;
 }
 
+void signalHandler(int signal_number) {
+    struct sigaction old_alrm_handler;
+    int status, i;
+
+    old_alrm_handler.sa_handler = SIG_DFL;
+    sigaction(SIGALRM, &old_alrm_handler, NULL);
+
+    for(i = 0; i < SO_NUM_G; i++)
+        kill(-giocatori[i].pid, SIGUSR2);
+
+    /* attesa terminazione di tutti i giocatori e pedine */
+    while(wait(&status) > 0);
+
+    /* detach e rm mc, sem, msg */
+    somebodyTookMaShmget();
+
+    exit(EXIT_SUCCESS);
+}
+
 #if DEBUG
 /* stampa dei valori del semaforo token */
-void testSemToken(int token_gioc) {
+void testSemToken() {
     unsigned short *val_array;
     int i;
 
