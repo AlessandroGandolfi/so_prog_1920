@@ -27,6 +27,8 @@ parametri a pedine
 9 - id mem cond scacchiera caratteri
 */
 int main(int argc, char **argv) {
+    struct sigaction new_signal_handler;
+
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
     sem_id_scac = atoi(argv[4]);
@@ -37,6 +39,9 @@ int main(int argc, char **argv) {
     mc_id_scac = atoi(argv[9]);
 
     getConfig(argv[1]);
+
+    new_signal_handler.sa_handler = &signalHandler;
+    sigaction(SIGUSR2, &new_signal_handler, NULL);
 
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
@@ -156,17 +161,12 @@ int muoviPedina(int dim, int ind_ped_sq) {
 
             /* prova ad eseguire mossa subito */
             if(semop(sem_id_scac, &sops, 1) == -1) {
-                TEST_ERROR;
-
                 arg_sleep.tv_sec = 0;
                 arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC / 2;
 
                 /* riprova dopo (SO_MIN_HOLD_NSEC / 2) se non riesce al primo tentativo */
-                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1) {
-                    TEST_ERROR;
-
+                if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
-                }
                 else aggiornaStato(ind_ped_sq, ind_mossa);
 
             } else aggiornaStato(ind_ped_sq, ind_mossa);
@@ -261,11 +261,16 @@ void gestRound() {
         }
         
         /* richiesta di un nuovo obiettivo una volta che pedine é di nuovo ferma */
-        kill(getppid(), SIGUSR1);
+        // kill(getppid(), SIGUSR1);
     } while(TRUE);
 }
 
 void signalHandler(int signal_number) {
+    struct sigaction old_signal_handler;
+
+    old_signal_handler.sa_handler = SIG_DFL;
+    sigaction(SIGUSR2, &old_signal_handler, NULL);
+
     shmdt(mc_char_scac);
     TEST_ERROR;
     

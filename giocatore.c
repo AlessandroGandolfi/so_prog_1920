@@ -40,8 +40,9 @@ int main(int argc, char **argv) {
     srand(time(NULL) + getpid());
 
     new_signal_handler.sa_handler = &signalHandler;
-    sigaction(SIGUSR1, &new_signal_handler, NULL);
     sigaction(SIGUSR2, &new_signal_handler, NULL);
+    new_signal_handler.sa_flags = SA_NODEFER;
+    sigaction(SIGUSR1, &new_signal_handler, NULL);
 
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
@@ -306,7 +307,6 @@ void gestRound() {
         
         /* ricezione messaggio con id di mc con bandiere */
         do {
-            TEST_ERROR;
             msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
         } while(errno == EINTR);
 
@@ -334,8 +334,10 @@ void initObiettivi() {
     int i, j, riga, range_scan, ped_sq, ped_nem, token_round;
     coord check;
 
-    mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
-    TEST_ERROR;
+    do {
+        mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
+        TEST_ERROR;
+    } while(errno == EINTR);
 
     #if DEBUG
     printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), mc_id_bandiere);
@@ -346,7 +348,9 @@ void initObiettivi() {
     se é in corso non tiene conto di pedine nemiche
     e non aspetta risposta da pedine della squadra
     */
-    token_round = semctl(token_gioc, pos_token, GETVAL, 0);
+    do {
+        token_round = semctl(token_gioc, pos_token, GETVAL, 0);
+    } while(errno == EINTR);
 
     for(i = 0; i < num_band_round; i++) {
         if(!mc_bandiere[i].presa) {
@@ -395,14 +399,15 @@ void initObiettivi() {
         }
     }
 
-    shmdt(mc_bandiere);
-    TEST_ERROR;
+    do {
+        shmdt(mc_bandiere);
+        TEST_ERROR;
+    } while(errno == EINTR);
 
     for(i = 0; i < SO_NUM_P; i++) {
         if(mc_ped_squadra[i].id_band != -1) {
             msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
             do {
-                TEST_ERROR;
                 msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
             } while(errno == EINTR);
 
@@ -483,10 +488,8 @@ void signalHandler(int signal_number) {
             while(wait(&status) > 0);
 
             shmdt(mc_char_scac);
-            TEST_ERROR;
 
             shmdt(mc_ped_squadra);
-            TEST_ERROR;
 
             exit(EXIT_SUCCESS);
     }

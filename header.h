@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -27,7 +26,7 @@ flag opzionali
 - PRINT_SCAN vedere area scan per assegnazione obiettivi
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 0
+#define DEBUG 1
 #define DEBUG_BAND_EASY 0
 #define PRINT_SCAN 0
 #define ENABLE_COLORS 1
@@ -126,6 +125,6 @@ void signalHandler(int);
 void gestRound();
 
 #if DEBUG
-void testSemToken(int);
+void testSemToken();
 void testConfig();
 #endif
