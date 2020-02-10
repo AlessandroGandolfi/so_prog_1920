@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 
     new_signal_handler.sa_handler = &signalHandler;
     sigaction(SIGUSR2, &new_signal_handler, NULL);
-    new_signal_handler.sa_flags = SA_NODEFER;
+    new_signal_handler.sa_flags = SA_RESTART;
     sigaction(SIGUSR1, &new_signal_handler, NULL);
 
     token_gioc = atoi(argv[2]);
@@ -348,9 +348,11 @@ void initObiettivi() {
     se é in corso non tiene conto di pedine nemiche
     e non aspetta risposta da pedine della squadra
     */
-    do {
-        token_round = semctl(token_gioc, pos_token, GETVAL, 0);
-    } while(errno == EINTR);
+    token_round = semctl(token_gioc, pos_token, GETVAL, 0);
+    TEST_ERROR;
+
+    if(!token_round)
+        printf("inizio assegnazioni round\n");
 
     for(i = 0; i < num_band_round; i++) {
         if(!mc_bandiere[i].presa) {
@@ -399,17 +401,24 @@ void initObiettivi() {
         }
     }
 
-    do {
-        shmdt(mc_bandiere);
-        TEST_ERROR;
-    } while(errno == EINTR);
+    
+    if(!token_round)
+        printf("fine assegnazioni round\n");
+
+    
+    shmdt(mc_bandiere);
+    TEST_ERROR;
+
+    
+    if(!token_round)
+        printf("inizio invio msg assegnazioni round\n");
 
     for(i = 0; i < SO_NUM_P; i++) {
         if(mc_ped_squadra[i].id_band != -1) {
             msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
-            do {
-                msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
-            } while(errno == EINTR);
+
+            msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
+            TEST_ERROR;
 
             /* 
             msg per assicurarsi che prima dell'inizio di 
@@ -422,6 +431,9 @@ void initObiettivi() {
             }
         }
     }
+
+    if(!token_round)
+        printf("fine invio msg assegnazioni round\n");
 
     /* msg a master fine calcolo percorsi per inizio round */
     if(token_round) {
@@ -472,17 +484,16 @@ int assegnaObiettivo(coord pos_ped_sq, int id_band, int mosse_richieste) {
 
 void signalHandler(int signal_number) {
     int status;
-    struct sigaction old_signal_handler;
 
     switch(signal_number) {
         case SIGUSR1:
+            printf("segnale obiettivi\n");
             /* le pedine in movimento non sono presenti sulla scacchiera di caratteri */
             initObiettivi();
             break;
         case SIGUSR2:
-            old_signal_handler.sa_handler = SIG_DFL;
-            sigaction(SIGUSR1, &old_signal_handler, NULL);
-            sigaction(SIGUSR2, &old_signal_handler, NULL);
+            signal(SIGUSR1, SIG_DFL);
+            signal(SIGUSR2, SIG_DFL);
             
             /* attesa terminazione di tutte le pedine */
             while(wait(&status) > 0);

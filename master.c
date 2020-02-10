@@ -17,7 +17,6 @@ int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac, token_gioc;
 
 int main(int argc, char **argv) {
     msg_conf msg_ped;
-    struct sigaction new_signal_handler;
 
     checkMode(argc, argv[1]);
 
@@ -28,8 +27,8 @@ int main(int argc, char **argv) {
     /* time torna int secondi da mezzanotte primo gennaio 1970 */
     srand(time(NULL) + getpid());
 
-    new_signal_handler.sa_handler = &signalHandler;
-    sigaction(SIGALRM, &new_signal_handler, NULL);
+    signal(SIGALRM, &signalHandler);
+    TEST_ERROR;
 
     initRisorse();
 
@@ -207,7 +206,7 @@ void stampaScacchiera(int num_round) {
 
     #if (defined (LINUX) || defined (__linux__) || defined (__APPLE__))
     /* clear console, supportato solo su UNIX */
-    system("clear");
+    // printf("\n\e[1;1H\e[2J");
     #endif
 
     /* stampa matrice caratteri */
@@ -356,9 +355,9 @@ void gestRound() {
 
         stampaScacchiera(num_round);
         
-        sleep(1);
+        // sleep(1);
 
-        alarm(SO_MAX_TIME);
+        // alarm(SO_MAX_TIME);
 
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
@@ -386,11 +385,11 @@ void gestRound() {
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
 
-        alarm(0);
+        // alarm(0);
 
         stampaScacchiera(num_round);
 
-        sleep(1);
+        // sleep(1);
 
         num_round++;
     } while(TRUE);
@@ -563,11 +562,9 @@ int calcDist(coord cas1, coord cas2) {
 }
 
 void signalHandler(int signal_number) {
-    struct sigaction old_signal_handler;
     int status, i;
-
-    old_signal_handler.sa_handler = SIG_DFL;
-    sigaction(SIGALRM, &old_signal_handler, NULL);
+    
+    signal(SIGALRM, SIG_DFL);
 
     for(i = 0; i < SO_NUM_G; i++)
         kill(-giocatori[i].pid, SIGUSR2);

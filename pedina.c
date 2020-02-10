@@ -2,15 +2,15 @@
 
 int waitObj();
 int calcPercorso();
-int muoviPedina(int, int);
-void aggiornaStato(int, int);
+int muoviPedina(int);
+void aggiornaStato();
 
 /* globali */
 ped *mc_ped_squadra;
 char *mc_char_scac;
 long pid_master;
 int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
-int ind_ped_sq, pos_token, token_gioc;
+int ind_ped_sq, pos_token, token_gioc, ind_mossa;
 coord *percorso;
 
 /* 
@@ -27,8 +27,6 @@ parametri a pedine
 9 - id mem cond scacchiera caratteri
 */
 int main(int argc, char **argv) {
-    struct sigaction new_signal_handler;
-
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
     sem_id_scac = atoi(argv[4]);
@@ -40,8 +38,8 @@ int main(int argc, char **argv) {
 
     getConfig(argv[1]);
 
-    new_signal_handler.sa_handler = &signalHandler;
-    sigaction(SIGUSR2, &new_signal_handler, NULL);
+    signal(SIGUSR2, &signalHandler);
+    TEST_ERROR;
 
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
@@ -139,8 +137,8 @@ int calcPercorso() {
     return num_mosse;
 }
 
-int muoviPedina(int dim, int ind_ped_sq) {
-    int ind_mossa, band_presa;
+int muoviPedina(int dim) {
+    int band_presa;
     struct sembuf sops;
     struct timespec arg_sleep;
 
@@ -167,9 +165,9 @@ int muoviPedina(int dim, int ind_ped_sq) {
                 /* riprova dopo (SO_MIN_HOLD_NSEC / 2) se non riesce al primo tentativo */
                 if(semtimedop(sem_id_scac, &sops, 1, &arg_sleep) == -1)
                     band_presa = FALSE; /* richiesta nuovo obiettivo */
-                else aggiornaStato(ind_ped_sq, ind_mossa);
+                else aggiornaStato();
 
-            } else aggiornaStato(ind_ped_sq, ind_mossa);
+            } else aggiornaStato();
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
 
@@ -178,7 +176,7 @@ int muoviPedina(int dim, int ind_ped_sq) {
     return band_presa;
 }
 
-void aggiornaStato(int ind_ped_sq, int ind_mossa) {
+void aggiornaStato() {
     struct sembuf sops;
     struct timespec arg_sleep;
 
@@ -252,12 +250,13 @@ void gestRound() {
         sops.sem_flg = 0;
         semop(token_gioc, &sops, 1);
 
-        if(muoviPedina(num_mosse, ind_ped_sq)) {
+        if(muoviPedina(num_mosse)) {
             msg_presa.id_band = mc_ped_squadra[ind_ped_sq].id_band;
             msg_presa.pos_token = pos_token;
             msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
             /* msg a master per bandiera presa */
             msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
+            TEST_ERROR;
         }
         
         /* richiesta di un nuovo obiettivo una volta che pedine é di nuovo ferma */
@@ -266,10 +265,7 @@ void gestRound() {
 }
 
 void signalHandler(int signal_number) {
-    struct sigaction old_signal_handler;
-
-    old_signal_handler.sa_handler = SIG_DFL;
-    sigaction(SIGUSR2, &old_signal_handler, NULL);
+    signal(SIGUSR2, SIG_DFL);
 
     shmdt(mc_char_scac);
     TEST_ERROR;
