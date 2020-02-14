@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
     checkMode(argc, argv[1]);
 
     #if DEBUG
-    testConfig();
+    // testConfig();
     #endif
 
     /* time torna int secondi da mezzanotte primo gennaio 1970 */
@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
 
     /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
     #if DEBUG
-    printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
+    // printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
     #endif
     msgrcv(msg_id_coda, &msg_ped, sizeof(msg_conf) - sizeof(long), (long) (giocatori[SO_NUM_G - 1].pid + MSG_PIAZZAMENTO), 0);
     TEST_ERROR;
@@ -156,6 +156,8 @@ eliminazione risorse (memorie condivise, coda msg, semafori, ...)
 void somebodyTookMaShmget() {
     int i;
 
+    errno = 0;
+
     semctl(sem_id_scac, 0, IPC_RMID);
     TEST_ERROR;
 
@@ -204,9 +206,9 @@ void stampaScacchiera(int num_round) {
         TEST_ERROR;
     }
 
-    #if (defined (LINUX) || defined (__linux__) || defined (__APPLE__))
+    #if ((defined (LINUX) || defined (__linux__) || defined (__APPLE__)) && !DEBUG)
     /* clear console, supportato solo su UNIX */
-    // printf("\n\e[1;1H\e[2J");
+    printf("\n\e[1;1H\e[2J");
     #endif
 
     /* stampa matrice caratteri */
@@ -331,7 +333,7 @@ void initGiocatori(char *mode) {
     }
 
     #if DEBUG
-    printf("master: fine creazione giocatori\n");
+    // printf("master: fine creazione giocatori\n");
     #endif
 }
 
@@ -354,10 +356,8 @@ void gestRound() {
             sem_arg.array[i] = 0;
 
         stampaScacchiera(num_round);
-        
-        // sleep(1);
 
-        // alarm(SO_MAX_TIME);
+        alarm(SO_MAX_TIME);
 
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
@@ -385,11 +385,9 @@ void gestRound() {
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
 
-        // alarm(0);
+        alarm(0);
 
         stampaScacchiera(num_round);
-
-        // sleep(1);
 
         num_round++;
     } while(TRUE);
@@ -489,7 +487,7 @@ int initBandiere(int num_round) {
     /* manda un messaggio per giocatore */
     for(i = 0; i < SO_NUM_G; i++) {
         #if DEBUG
-        printf("master: invio id mc band %d a giocatore %d\n", mc_id_band, (i + 1));
+        // printf("master: invio id mc band %d a giocatore %d\n", mc_id_band, (i + 1));
         #endif
 
         msg_new_band.id_band = num_band;
@@ -535,30 +533,9 @@ int checkPosBandiere(coord casella, int num_band) {
     return TRUE;
 }
 
-/*
-calcolo della distanza tra 2 caselle della scacchiera
-param:
-- coord prima casella
-- coord seconda casella
-*/
+/* dist manhattan */
 int calcDist(coord cas1, coord cas2) {
-    int distanza, dif_riga, dif_col, dif_min, dif_max;
-
-    /* differenza riga e colonna caselle */
-    dif_riga = abs(cas1.y - cas2.y);
-    dif_col = abs(cas1.x - cas2.x);
-    
-    dif_min = (dif_col <= dif_riga) ? dif_col : dif_riga;
-    dif_max = (dif_col > dif_riga) ? dif_col : dif_riga;
-
-    /* 
-    distanza finale = sqrt(2) * passi diagonali + passi "rettilinei"
-    passi in diagonale = dif_min
-    passi "rettilinei" = (dif_max - dif_min) 
-    */
-    distanza = ((int) sqrt(2)) * dif_min + (dif_max - dif_min);
-
-    return distanza;
+    return abs(cas1.x - cas2.x) + abs(cas1.y - cas2.y);
 }
 
 void signalHandler(int signal_number) {

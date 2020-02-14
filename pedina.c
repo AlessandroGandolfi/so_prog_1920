@@ -122,18 +122,6 @@ int calcPercorso() {
         #endif
     }
 
-    #if DEBUG
-    /*
-    for(i = 0; i < num_mosse; i++)
-        printf("ped %d: %d, %d, coord: %d %d\n"
-            , ind_ped_sq
-            , mc_ped_squadra[ind_ped_sq].pos_attuale.x
-            , mc_ped_squadra[ind_ped_sq].pos_attuale.y
-            , percorso[i].x
-            , percorso[i].y);
-    */
-    #endif
-
     return num_mosse;
 }
 
@@ -259,8 +247,8 @@ void gestRound() {
             TEST_ERROR;
         }
         
-        /* richiesta di un nuovo obiettivo una volta che pedine é di nuovo ferma */
-        // kill(getppid(), SIGUSR1);
+        /* richiesta di un nuovo obiettivo una volta che pedina é di nuovo ferma */
+        kill(getppid(), SIGUSR1);
     } while(TRUE);
 }
 
