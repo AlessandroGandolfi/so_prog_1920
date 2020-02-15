@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -22,11 +21,20 @@
 
 /* 
 flag opzionali 
-- DEBUG per stampare piú informazioni
+- DEBUG per stampare piú informazioni generali
+- DEBUG_BAND_EASY info riguardo bandiere prese e punteggio (solo in easy)
+- PRINT_SCAN vedere area scan per assegnazione obiettivi
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 1
+#define DEBUG 0
+#define DEBUG_BAND_EASY 0
+#define PRINT_SCAN 0
 #define ENABLE_COLORS 1
+
+#define MSG_OBIETTIVO 11111
+#define MSG_PERCORSO 22222
+#define MSG_BANDIERA 33333
+#define MSG_PIAZZAMENTO 44444
 
 #define INDEX(coord) (coord.y * SO_BASE) + coord.x
 
@@ -55,15 +63,16 @@ typedef struct _coordinate {
     int y;
 } coord;
 
-typedef struct _bandierina {
+typedef struct _bandiera {
     coord pos_band;
     int punti;
     int presa;
 } band;
 
 typedef struct _pedina {
-    int obiettivo;
     coord pos_attuale;
+    coord obiettivo;
+    int id_band;
     int mosse_rim;
 } ped;
 
@@ -75,24 +84,27 @@ typedef struct _giocatore {
 } gioc;
 
 /* messaggio usato per segnalare una bandierina presa e id mc bandiere */
-typedef struct _msg_band {
+typedef struct _msg_bandiera {
     long mtype;
     int ind;
-    int num_band;
+    int id_band;
 } msg_band;
 
-/* messaggio usato per segnalare assegnazione nuovo obiettivo */
-typedef struct _msg_nuovo_obiettivo {
+/* messaggio usato per segnalare una bandiera presa */
+typedef struct _msg_bandiera_presa {
     long mtype;
-    int mc_id_band;
-    int band_assegnata;
-} msg_new_obj;
+    int id_band;
+    int pos_token;
+} msg_band_presa;
 
-/* messaggio usato per segnalare fine piazzamento */
-typedef struct _msg_piaz {
+/* 
+messaggio di conferma generale usato per
+    fine piazzamento pedine da giocatore a master
+    fine calcolo percorso da pedine a giocatore
+*/
+typedef struct _msg_conferma {
     long mtype;
-    int fine_piaz;
-} msg_fine_piaz;
+} msg_conf;
 
 int SO_NUM_G;
 int SO_NUM_P;
@@ -109,8 +121,10 @@ int DIST_BAND;
 
 int calcDist(coord, coord);
 void getConfig(char *);
+void signalHandler(int);
+void gestRound();
 
 #if DEBUG
-void testSemToken(int);
+void testSemToken();
 void testConfig();
 #endif
