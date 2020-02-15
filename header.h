@@ -26,7 +26,7 @@ flag opzionali
 - PRINT_SCAN vedere area scan per assegnazione obiettivi
 - ENABLE_COLORS per abilitare o meno i colori in console
 */
-#define DEBUG 1
+#define DEBUG 0
 #define DEBUG_BAND_EASY 0
 #define PRINT_SCAN 0
 #define ENABLE_COLORS 1

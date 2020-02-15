@@ -322,7 +322,7 @@ void gestRound() {
 /* utilizzata solo per assegnazione degli obiettivi prima dell'inizio del round */
 void initObiettivi() {
     msg_conf msg_perc, msg_obiettivo;
-    int i, j, riga, range_scan, ped_sq, ped_nem, token_round;
+    int i, j, riga, range_scan, ped_sq, ped_nem;
     coord check;
 
     mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
@@ -441,30 +441,20 @@ void nuoviObiettivi() {
     int i, j, id_ped_sq, dist_ped, dist_min;
     msg_conf msg_obiettivo;
 
-
-    printf("eeeeeeeeeeeooooooooooooooo\n");
-
-    printf("eeeeeeeeeeeooooooooooooooo\n");
-
     mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
     TEST_ERROR;
 
-
-    printf("111111111111111111111111111\n");
     for(i = 0; i < num_band_round; i++) {
         if(!band_assegnate[i]) {
             id_ped_sq = -1;
             dist_min = SO_N_MOVES;
-
-
-    printf("22222222222222222222222222222222\n");
+            
             for(j = 0; j < SO_NUM_P; j++) {
                 /* se la pedina ha come obiettivo una bandiera presa o non ha obiettivo */
-                if(mc_bandiere[mc_ped_squadra[j].id_band].presa || mc_ped_squadra[j].id_band == -1) {
+                if((mc_ped_squadra[j].id_band != -1 && mc_bandiere[mc_ped_squadra[j].id_band].presa) 
+                    || mc_ped_squadra[j].id_band == -1) {
                     dist_ped = calcDist(mc_bandiere[i].pos_band, mc_ped_squadra[j].pos_attuale);
                     
-
-    printf("33333333333333333333333333333333\n");
                     /* 
                     ha abbastanza mosse per raggiungere la bandiera 
                     e sono minori di quelle richieste dalla precedente pedina
@@ -485,16 +475,12 @@ void nuoviObiettivi() {
 
                 msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
                 TEST_ERROR;
-
-    printf("44444444444444444444444444444444\n");
             }
         }
     }
 
     shmdt(mc_bandiere);
     TEST_ERROR;
-
-    printf("eeeeeeeeeeeooooooooooooooo\n");
 }
 
 void signalHandler(int signal_number) {
@@ -502,9 +488,9 @@ void signalHandler(int signal_number) {
 
     switch(signal_number) {
         case SIGUSR1:
-            printf("segnale obiettivi\n");
             /* le pedine in movimento non sono presenti sulla scacchiera di caratteri */
-            nuoviObiettivi();
+            if(!semctl(token_gioc, pos_token, GETVAL, 0))
+                nuoviObiettivi();
             break;
         case SIGUSR2:
             signal(SIGUSR1, SIG_DFL);

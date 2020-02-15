@@ -27,6 +27,8 @@ int main(int argc, char **argv) {
     /* time torna int secondi da mezzanotte primo gennaio 1970 */
     srand(time(NULL) + getpid());
 
+    signal(SIGINT, &signalHandler);
+    TEST_ERROR;
     signal(SIGALRM, &signalHandler);
     TEST_ERROR;
 
@@ -540,8 +542,6 @@ int calcDist(coord cas1, coord cas2) {
 
 void signalHandler(int signal_number) {
     int status, i;
-    
-    signal(SIGALRM, SIG_DFL);
 
     for(i = 0; i < SO_NUM_G; i++)
         kill(-giocatori[i].pid, SIGUSR2);
@@ -551,6 +551,9 @@ void signalHandler(int signal_number) {
 
     /* detach e rm mc, sem, msg */
     somebodyTookMaShmget();
+
+    signal(SIGALRM, SIG_DFL);
+    signal(SIGINT, SIG_DFL);
 
     exit(EXIT_SUCCESS);
 }

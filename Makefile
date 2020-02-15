@@ -1,7 +1,7 @@
 #cflags = -std=c89 -pedantic
 mode ?= ""
 
-buildall: master giocatore pedina
+buildall: clock master giocatore pedina
 
 clean:
 	rm -f *o master giocatore pedina *~
