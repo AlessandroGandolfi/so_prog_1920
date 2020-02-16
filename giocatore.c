@@ -471,6 +471,8 @@ void nuoviObiettivi() {
                 mc_ped_squadra[id_ped_sq].obiettivo = mc_bandiere[i].pos_band;
                 mc_ped_squadra[id_ped_sq].id_band = i;
 
+                printf("gioc %d: msg a ped %d ob %d\n", (pos_token + 1), id_ped_sq, i);
+
                 msg_obiettivo.mtype = (long) (pids_pedine[id_ped_sq] + MSG_OBIETTIVO);
 
                 msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
@@ -485,9 +487,12 @@ void nuoviObiettivi() {
 
 void signalHandler(int signal_number) {
     int status;
+    
+    errno = 0;
 
     switch(signal_number) {
         case SIGUSR1:
+            printf("gioc %d: segnale obiettivi\n", (pos_token + 1));
             /* le pedine in movimento non sono presenti sulla scacchiera di caratteri */
             if(!semctl(token_gioc, pos_token, GETVAL, 0))
                 nuoviObiettivi();

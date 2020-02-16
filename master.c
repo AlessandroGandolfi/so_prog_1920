@@ -5,15 +5,15 @@ void initRisorse();
 void initGiocatori(char *);
 void initSemScacchiera();
 void somebodyTookMaShmget();
-void stampaScacchiera(int);
-int initBandiere(int);
+void stampaScacchiera();
+int initBandiere();
 int checkPosBandiere(coord, int);
 
 /* globali */
 gioc *giocatori;
 char *mc_char_scac;
 band *mc_bandiere;
-int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac, token_gioc;
+int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac, token_gioc, num_round;
 
 int main(int argc, char **argv) {
     msg_conf msg_ped;
@@ -190,9 +190,10 @@ void somebodyTookMaShmget() {
 /*
 stampa scacchiera e calcolo mosse rimanenti per squadra
 */
-void stampaScacchiera(int num_round) {
+void stampaScacchiera() {
     int i, j;
     ped *mc_ped_squadra;
+    struct timespec arg_sleep;
 
     /* mosse rimanenti */
     for(i = 0; i < SO_NUM_G; i++) {
@@ -210,7 +211,7 @@ void stampaScacchiera(int num_round) {
 
     #if ((defined (LINUX) || defined (__linux__) || defined (__APPLE__)) && !DEBUG)
     /* clear console, supportato solo su UNIX */
-    printf("\n\e[1;1H\e[2J");
+    // printf("\n\e[1;1H\e[2J");
     #endif
 
     /* stampa matrice caratteri */
@@ -255,6 +256,10 @@ void stampaScacchiera(int num_round) {
 
     for(i = 0; i < SO_NUM_G; i++) 
         printf("- Punteggio giocatore %d: %d; %d mosse totali rimanenti\n", (i + 1), giocatori[i].punteggio, giocatori[i].tot_mosse_rim);
+
+    arg_sleep.tv_sec = 0;
+    arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
+    nanosleep(&arg_sleep, NULL);
 }
 
 /*
@@ -340,7 +345,7 @@ void initGiocatori(char *mode) {
 }
 
 void gestRound() {
-    int i, num_band, num_round;
+    int i, num_band;
     msg_band_presa msg_presa;
     semun sem_arg;
 
@@ -352,12 +357,14 @@ void gestRound() {
     // TODO controllare che ci siano tutte le periferiche
     do {
         /* creazione bandiere, valorizzazione array bandiere */
-        num_band = initBandiere(num_round);
+        num_band = initBandiere();
         
         for(i = 0; i < SO_NUM_G; i++)
             sem_arg.array[i] = 0;
 
-        stampaScacchiera(num_round);
+        printf("------------inizio------------\n");
+
+        stampaScacchiera();
 
         alarm(SO_MAX_TIME);
 
@@ -389,7 +396,8 @@ void gestRound() {
 
         alarm(0);
 
-        stampaScacchiera(num_round);
+        stampaScacchiera();
+        printf("-------------fine-------------\n");
 
         num_round++;
     } while(TRUE);
@@ -400,7 +408,7 @@ piazzamento nuove bandiere e distribuzione loro punteggio
 param:
 - id token giocatori (usato successivamente per partenza round)
 */
-int initBandiere(int num_round) {
+int initBandiere() {
     int i, riga, colonna, tot_punti_rim, num_band;
     msg_band msg_new_band;
     msg_conf msg_perc;
@@ -542,12 +550,16 @@ int calcDist(coord cas1, coord cas2) {
 
 void signalHandler(int signal_number) {
     int status, i;
+    
+    errno = 0;
 
     for(i = 0; i < SO_NUM_G; i++)
         kill(-giocatori[i].pid, SIGUSR2);
 
     /* attesa terminazione di tutti i giocatori e pedine */
     while(wait(&status) > 0);
+
+    stampaScacchiera();
 
     /* detach e rm mc, sem, msg */
     somebodyTookMaShmget();
