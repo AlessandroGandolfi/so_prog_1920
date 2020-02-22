@@ -104,7 +104,7 @@ void getConfig(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
         fscanf(fs, "%d%*[^\n]", &DIST_PED);
-        fscanf(fs, "%d%*[^\0]", &DIST_BAND);
+        fscanf(fs, "%d%*[0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);

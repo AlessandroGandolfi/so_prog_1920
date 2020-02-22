@@ -1,4 +1,4 @@
-#cflags = -std=c89 -pedantic
+cflags = -std=c89 -pedantic
 mode ?= ""
 
 buildall: clock master giocatore pedina

@@ -136,7 +136,7 @@ int muoviPedina(int dim) {
 
     band_presa = TRUE;
 
-    // mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0';
+    /* mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0';*/
 
     for(ind_mossa = 0; ind_mossa < dim && band_presa; ind_mossa++) {
         /* prima di ogni mossa controlla dalla scacchiera che l'obiettivo non sia stato giá preso */
@@ -163,7 +163,7 @@ int muoviPedina(int dim) {
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
 
-    // mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = (pos_token + 1) + '0';
+    /* mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = (pos_token + 1) + '0';*/
 
     return band_presa;
 }
@@ -225,7 +225,7 @@ void getConfig(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
         fscanf(fs, "%d%*[^\n]", &DIST_PED);
-        fscanf(fs, "%d%*[^\0]", &DIST_BAND);
+        fscanf(fs, "%d%*[0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
@@ -271,7 +271,7 @@ void gestRound() {
 void signalHandler(int signal_number) {
     errno = 0;
     
-    // printf("ped gioc %d: %d %d\n", (pos_token + 1), mc_ped_squadra[ind_ped_sq].pos_attuale.y, mc_ped_squadra[ind_ped_sq].pos_attuale.x);
+    /*printf("ped gioc %d: %d %d\n", (pos_token + 1), mc_ped_squadra[ind_ped_sq].pos_attuale.y, mc_ped_squadra[ind_ped_sq].pos_attuale.x);*/
 
     signal(SIGUSR2, SIG_DFL);
 
