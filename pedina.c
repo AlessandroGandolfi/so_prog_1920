@@ -10,7 +10,7 @@ ped *mc_ped_squadra;
 char *mc_char_scac;
 long pid_master;
 int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
-int ind_ped_sq, pos_token, token_gioc, ind_mossa;
+int id_ped_sq, pos_token, token_gioc, ind_mossa;
 coord *percorso;
 
 /* 
@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     pos_token = atoi(argv[3]);
     sem_id_scac = atoi(argv[4]);
     mc_id_squadra = atoi(argv[5]);
-    ind_ped_sq = atoi(argv[6]);
+    id_ped_sq = atoi(argv[6]);
     msg_id_coda = atoi(argv[7]);
     pid_master = atol(argv[8]);
     mc_id_scac = atoi(argv[9]);
@@ -59,7 +59,7 @@ int waitObj() {
     TEST_ERROR;
 
     #if DEBUG
-    printf("ped %d: msg obiettivo %d ricevuto\n", (ind_ped_sq + 1), (mc_ped_squadra[ind_ped_sq].id_band));
+    printf("ped %d: msg obiettivo %d ricevuto\n", (id_ped_sq + 1), mc_ped_squadra[id_ped_sq].id_band);
     #endif
     
     /* solo quelle con obiettivo ricevono il messaggio */
@@ -67,7 +67,7 @@ int waitObj() {
 }
 
 int calcPercorso() {
-    int i, num_mosse, token_round;
+    int i, num_mosse;
     coord cont;
     msg_conf msg_fine_perc;
 
@@ -78,19 +78,19 @@ int calcPercorso() {
     elimino e rialloco array di mosse
     */
     if(percorso != NULL) free(percorso);
-    num_mosse = calcDist(mc_ped_squadra[ind_ped_sq].pos_attuale, mc_ped_squadra[ind_ped_sq].obiettivo);
+    num_mosse = calcDist(mc_ped_squadra[id_ped_sq].pos_attuale, mc_ped_squadra[id_ped_sq].obiettivo);
     percorso = (coord *) calloc(num_mosse, sizeof(coord));
     
-    cont = mc_ped_squadra[ind_ped_sq].pos_attuale;
+    cont = mc_ped_squadra[id_ped_sq].pos_attuale;
 
     /*calcolo il percorso della pedina*/
     for(i = 0; i < num_mosse; i++) {
-        if((cont.x - mc_ped_squadra[ind_ped_sq].obiettivo.x) == 0) {
+        if((cont.x - mc_ped_squadra[id_ped_sq].obiettivo.x) == 0) {
             /* mossa finale percorso */
-            if((cont.y - mc_ped_squadra[ind_ped_sq].obiettivo.y) == 0)
-                percorso[i] = mc_ped_squadra[ind_ped_sq].obiettivo;
+            if((cont.y - mc_ped_squadra[id_ped_sq].obiettivo.y) == 0)
+                percorso[i] = mc_ped_squadra[id_ped_sq].obiettivo;
             /* mossa in alto */
-            else if((cont.y - mc_ped_squadra[ind_ped_sq].obiettivo.y) > 0) {
+            else if((cont.y - mc_ped_squadra[id_ped_sq].obiettivo.y) > 0) {
                 percorso[i].x = cont.x;
                 percorso[i].y = cont.y - 1;
             }
@@ -101,7 +101,7 @@ int calcPercorso() {
             }    
         }
         /* mossa a sinistra */
-        else if((cont.x - mc_ped_squadra[ind_ped_sq].obiettivo.x) > 0) {
+        else if((cont.x - mc_ped_squadra[id_ped_sq].obiettivo.x) > 0) {
             percorso[i].x = cont.x - 1;
             percorso[i].y = cont.y;
         }
@@ -113,16 +113,14 @@ int calcPercorso() {
         cont = percorso[i];
     }
 
-    token_round = semctl(token_gioc, pos_token, GETVAL, 0);
-
     /* msg send fine calcolo percorso a giocatore prima di inizio round */
-    if(token_round) {
+    if(semctl(token_gioc, pos_token, GETVAL, 0)) {
         msg_fine_perc.mtype = (long) (getpid() + MSG_PERCORSO);
         msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
         TEST_ERROR;
 
         #if DEBUG
-        /* printf("ped %d: msg fine calc percorso a gioc %d\n", (ind_ped_sq + 1), token_round); */
+        /* printf("ped %d: msg fine calc percorso a gioc %d\n", (id_ped_sq + 1), pos_token); */
         #endif
     }
 
@@ -136,13 +134,11 @@ int muoviPedina(int dim) {
 
     band_presa = TRUE;
 
-    // mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0';
-
     for(ind_mossa = 0; ind_mossa < dim && band_presa; ind_mossa++) {
         /* prima di ogni mossa controlla dalla scacchiera che l'obiettivo non sia stato giá preso */
-        if(mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].obiettivo)] == 'B'
-            #if DEBUG_BAND_EASY
-            || mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].obiettivo)] == (mc_ped_squadra[ind_ped_sq].id_band + 'A')
+        if(mc_char_scac[INDEX(mc_ped_squadra[id_ped_sq].obiettivo)] == 'B'
+            #if DEBUG_BAND
+            || mc_char_scac[INDEX(mc_ped_squadra[id_ped_sq].obiettivo)] == (mc_ped_squadra[id_ped_sq].id_band + 'A')
             #endif
         ) {
             sops.sem_num = INDEX(percorso[ind_mossa]);
@@ -151,6 +147,7 @@ int muoviPedina(int dim) {
 
             /* prova ad eseguire mossa subito */
             if(semop(sem_id_scac, &sops, 1) == -1) {
+        
                 arg_sleep.tv_sec = 0;
                 arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC / 2;
 
@@ -163,8 +160,6 @@ int muoviPedina(int dim) {
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
 
-    // mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = (pos_token + 1) + '0';
-
     return band_presa;
 }
 
@@ -174,19 +169,19 @@ void aggiornaStato() {
 
     errno = 0;
 
-    mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0';
+    mc_char_scac[INDEX(mc_ped_squadra[id_ped_sq].pos_attuale)] = '0';
 
     /* libera risorsa precedente */
-    sops.sem_num = INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale);
+    sops.sem_num = INDEX(mc_ped_squadra[id_ped_sq].pos_attuale);
     sops.sem_op = 1;
     sops.sem_flg = 0;
     semop(sem_id_scac, &sops, 1);
     TEST_ERROR;
     
-    mc_ped_squadra[ind_ped_sq].pos_attuale = percorso[ind_mossa];
-    mc_ped_squadra[ind_ped_sq].mosse_rim--;
+    mc_ped_squadra[id_ped_sq].pos_attuale = percorso[ind_mossa];
+    mc_ped_squadra[id_ped_sq].mosse_rim--;
     
-    mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = (pos_token + 1) + '0';
+    mc_char_scac[INDEX(mc_ped_squadra[id_ped_sq].pos_attuale)] = (pos_token + 1) + '0';
 
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
@@ -242,8 +237,8 @@ void gestRound() {
     do {
         num_mosse = waitObj();
 
-        if(semctl(token_gioc, pos_token, GETVAL, 0))
-            printf("ped %d gioc %d: ricevuto obiettivo %d\n", ind_ped_sq, (pos_token + 1), mc_ped_squadra[ind_ped_sq].id_band);
+        // if(semctl(token_gioc, pos_token, GETVAL, 0))
+        //     printf("ped %d gioc %d: ricevuto obiettivo %d\n", id_ped_sq, (pos_token + 1), mc_ped_squadra[id_ped_sq].id_band);
 
         /* bloccate fino a quando round non é in corso */
         sops.sem_num = pos_token;
@@ -252,12 +247,12 @@ void gestRound() {
         semop(token_gioc, &sops, 1);
 
         if(muoviPedina(num_mosse)) {
-            msg_presa.id_band = mc_ped_squadra[ind_ped_sq].id_band;
+            msg_presa.id_band = mc_ped_squadra[id_ped_sq].id_band;
             msg_presa.pos_token = pos_token;
             msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
 
             errno = 0;
-
+            // printf("gioc %d ped %d: band %d presa\n", pos_token, id_ped_sq, mc_ped_squadra[id_ped_sq].id_band);
             /* msg a master per bandiera presa */
             msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
             TEST_ERROR;
@@ -271,8 +266,6 @@ void gestRound() {
 void signalHandler(int signal_number) {
     errno = 0;
     
-    // printf("ped gioc %d: %d %d\n", (pos_token + 1), mc_ped_squadra[ind_ped_sq].pos_attuale.y, mc_ped_squadra[ind_ped_sq].pos_attuale.x);
-
     signal(SIGUSR2, SIG_DFL);
 
     shmdt(mc_char_scac);

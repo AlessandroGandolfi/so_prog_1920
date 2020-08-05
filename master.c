@@ -211,7 +211,7 @@ void stampaScacchiera() {
 
     #if ((defined (LINUX) || defined (__linux__) || defined (__APPLE__)) && !DEBUG)
     /* clear console, supportato solo su UNIX */
-    // printf("\n\e[1;1H\e[2J");
+    printf("\n\e[1;1H\e[2J");
     #endif
 
     /* stampa matrice caratteri */
@@ -230,17 +230,11 @@ void stampaScacchiera() {
             case '4':
                 printf("\033[1;36m");
                 break;
-            #if DEBUG_BAND_EASY
-            case 'A':
-            case 'C':
-            case 'D':
-            case 'E':
-            #endif
-            case 'B':
-                printf("\033[0;33m");
+            case '0':
+                printf("\033[0m");
                 break;
             default:
-                printf("\033[0m");
+                printf("\033[0;33m");
                 break;
         }
         #endif
@@ -457,6 +451,12 @@ int initBandiere() {
         /* valorizzazione mc bandiere */
         mc_bandiere[i].pos_band = casella;
         mc_bandiere[i].presa = FALSE;
+
+        /* temporaneo (spero), impedisce fine modalitá hard per caselle occupate a caso */
+        sem_arg.val = 1;
+        semctl(sem_id_scac, INDEX(mc_bandiere[i].pos_band), SETVAL, sem_arg);
+        TEST_ERROR;
+        
         /* 
         una bandiera vale al massimo la metá dei punti rimanenti 
         da distribuire a meno che non sia l'ultima da piazzare 
@@ -472,11 +472,11 @@ int initBandiere() {
         /* piazzamento bandiere su scacchiera */
         mc_char_scac[INDEX(casella)] = 'B';
 
-        #if DEBUG_BAND_EASY
+        #if DEBUG_BAND
         mc_char_scac[INDEX(casella)] = (i + 'A');
         #endif
     }
-
+    
     #if DEBUG
     testSemToken();
     #endif
