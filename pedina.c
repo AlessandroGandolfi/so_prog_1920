@@ -202,7 +202,7 @@ void getConfig(char *mode) {
     FILE *fs;
     char *config_file;
 
-    config_file = (char *) malloc(sizeof(char));
+    config_file = (char *) malloc(sizeof(char)*10);
     strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
