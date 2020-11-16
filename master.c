@@ -446,16 +446,11 @@ int initBandiere() {
         do {
             casella.y = rand() % SO_ALTEZZA;
             casella.x = rand() % SO_BASE;
-        } while(!checkPosBandiere(casella, num_band));
+        } while(!checkPosBandiere(casella, i));
 
         /* valorizzazione mc bandiere */
         mc_bandiere[i].pos_band = casella;
         mc_bandiere[i].presa = FALSE;
-
-        /* temporaneo (spero), impedisce fine modalitá hard per caselle occupate a caso */
-        sem_arg.val = 1;
-        semctl(sem_id_scac, INDEX(mc_bandiere[i].pos_band), SETVAL, sem_arg);
-        TEST_ERROR;
         
         /* 
         una bandiera vale al massimo la metá dei punti rimanenti 
@@ -532,10 +527,14 @@ param:
 - coordinate generate
 - numero di bandierine da piazzare questo round
 */
-int checkPosBandiere(coord casella, int num_band) {
+int checkPosBandiere(coord casella, int num_band_piazzate) {
     int i;
 
-    for(i = 0; i < num_band && (mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1); i++)
+    /* controllo su prima bandiera a essere piazzata */
+    if(num_band_piazzate == 0 && mc_char_scac[INDEX(casella)] != '0') return FALSE;
+
+    /* dalla seconda in poi controllo che la bandiera che il master piazza sia distante dalle altre */
+    for(i = 0; i <= num_band_piazzate && (mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1); i++)
         if(calcDist(casella, mc_bandiere[i].pos_band) < DIST_BAND
             || mc_char_scac[INDEX(casella)] != '0')
             return FALSE;
