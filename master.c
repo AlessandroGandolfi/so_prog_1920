@@ -27,6 +27,7 @@ int main(int argc, char **argv) {
     /* time torna int secondi da mezzanotte primo gennaio 1970 */
     srand(time(NULL) + getpid());
 
+
     signal(SIGINT, &signalHandler);
     TEST_ERROR;
     signal(SIGALRM, &signalHandler);
@@ -79,7 +80,7 @@ void getConfig(char *mode) {
     FILE *fs;
     char *config_file;
 
-    config_file = (char *) malloc(sizeof(char));
+    config_file = (char *) malloc(sizeof(char) * 10);
     strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
@@ -102,7 +103,8 @@ void getConfig(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
         fscanf(fs, "%d%*[^\n]", &DIST_PED);
-        fscanf(fs, "%d%*[^\0]", &DIST_BAND);
+        /* TODO CONTROLLARE */
+        fscanf(fs, "%d%*[0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
@@ -211,7 +213,7 @@ void stampaScacchiera() {
 
     #if ((defined (LINUX) || defined (__linux__) || defined (__APPLE__)) && !DEBUG)
     /* clear console, supportato solo su UNIX */
-    printf("\n\e[1;1H\e[2J");
+    printf("\033[2J\033[H");
     #endif
 
     /* stampa matrice caratteri */
@@ -296,7 +298,8 @@ void initGiocatori(char *mode) {
     param_giocatori[4] = tmp_params[2];
     sprintf(tmp_params[4], "%d", msg_id_coda);
     param_giocatori[6] = tmp_params[4];
-    sprintf(tmp_params[5], "%d", mc_id_scac);
+    /* TODO CONTROLLARE */
+    snprintf(tmp_params[5], 12, "%d", mc_id_scac);
     param_giocatori[7] = tmp_params[5];
     param_giocatori[8] = NULL;
 
@@ -348,7 +351,7 @@ void gestRound() {
 
     num_round = 1;
 
-    // TODO controllare che ci siano tutte le periferiche
+    /* TODO controllare che ci siano tutte le periferiche*/
     do {
         /* creazione bandiere, valorizzazione array bandiere */
         num_band = initBandiere();

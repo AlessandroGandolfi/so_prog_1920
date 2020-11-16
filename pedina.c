@@ -134,6 +134,8 @@ int muoviPedina(int dim) {
 
     band_presa = TRUE;
 
+    /* mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = '0'; */
+
     for(ind_mossa = 0; ind_mossa < dim && band_presa; ind_mossa++) {
         /* prima di ogni mossa controlla dalla scacchiera che l'obiettivo non sia stato giá preso */
         if(mc_char_scac[INDEX(mc_ped_squadra[id_ped_sq].obiettivo)] == 'B'
@@ -159,6 +161,8 @@ int muoviPedina(int dim) {
             } else aggiornaStato();
         } else band_presa = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
     }
+
+    /* mc_char_scac[INDEX(mc_ped_squadra[ind_ped_sq].pos_attuale)] = (pos_token + 1) + '0'; */
 
     return band_presa;
 }
@@ -197,7 +201,7 @@ void getConfig(char *mode) {
     FILE *fs;
     char *config_file;
 
-    config_file = (char *) malloc(sizeof(char));
+    config_file = (char *) malloc(sizeof(char) * 10);
     strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
@@ -220,7 +224,8 @@ void getConfig(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
         fscanf(fs, "%d%*[^\n]", &DIST_PED);
-        fscanf(fs, "%d%*[^\0]", &DIST_BAND);
+        /* TODO CONTROLLARE */
+        fscanf(fs, "%d%*[0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
@@ -237,9 +242,6 @@ void gestRound() {
     do {
         num_mosse = waitObj();
 
-        // if(semctl(token_gioc, pos_token, GETVAL, 0))
-        //     printf("ped %d gioc %d: ricevuto obiettivo %d\n", id_ped_sq, (pos_token + 1), mc_ped_squadra[id_ped_sq].id_band);
-
         /* bloccate fino a quando round non é in corso */
         sops.sem_num = pos_token;
         sops.sem_op = 0;
@@ -252,7 +254,7 @@ void gestRound() {
             msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
 
             errno = 0;
-            // printf("gioc %d ped %d: band %d presa\n", pos_token, id_ped_sq, mc_ped_squadra[id_ped_sq].id_band);
+            
             /* msg a master per bandiera presa */
             msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
             TEST_ERROR;
@@ -266,6 +268,8 @@ void gestRound() {
 void signalHandler(int signal_number) {
     errno = 0;
     
+    /* printf("ped gioc %d: %d %d\n", (pos_token + 1), mc_ped_squadra[ind_ped_sq].pos_attuale.y, mc_ped_squadra[ind_ped_sq].pos_attuale.x); */
+
     signal(SIGUSR2, SIG_DFL);
 
     shmdt(mc_char_scac);

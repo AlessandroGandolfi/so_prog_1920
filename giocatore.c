@@ -81,7 +81,7 @@ void getConfig(char *mode) {
     FILE *fs;
     char *config_file;
 
-    config_file = (char *) malloc(sizeof(char));
+    config_file = (char *) malloc(sizeof(char) * 10);
     strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
@@ -104,7 +104,8 @@ void getConfig(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
         fscanf(fs, "%d%*[^\n]", &DIST_PED);
-        fscanf(fs, "%d%*[^\0]", &DIST_BAND);
+        /* TODO CONTROLLARE */
+        fscanf(fs, "%d%*[0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
@@ -471,7 +472,7 @@ void nuoviObiettivi() {
                 mc_ped_squadra[id_ped_sq].obiettivo = mc_bandiere[i].pos_band;
                 mc_ped_squadra[id_ped_sq].id_band = i;
 
-                // printf("gioc %d: msg a ped %d ob %d\n", (pos_token + 1), id_ped_sq, i);
+                /* printf("gioc %d: msg a ped %d ob %d\n", (pos_token + 1), id_ped_sq, i); */
 
                 msg_obiettivo.mtype = (long) (pids_pedine[id_ped_sq] + MSG_OBIETTIVO);
 
