@@ -361,12 +361,14 @@ void gestRound() {
 
         printf("------------inizio------------\n");
 
-        stampaScacchiera();
+        // stampaScacchiera();
 
         alarm(SO_MAX_TIME);
 
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
+
+        printf("master: inizio attesa conquista bandiere\n");
 
         for(i = 0; i < num_band; i++) {
             msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
@@ -385,6 +387,8 @@ void gestRound() {
             } else i--;
         }
 
+        printf("master: bandiere conquistate\n");
+
         for(i = 0; i < SO_NUM_G; i++)
             sem_arg.array[i] = 1;
 
@@ -393,7 +397,7 @@ void gestRound() {
 
         alarm(0);
 
-        stampaScacchiera();
+        // stampaScacchiera();
         printf("-------------fine-------------\n");
 
         num_round++;
@@ -411,6 +415,8 @@ int initBandiere() {
     msg_conf msg_perc;
     semun sem_arg;
     coord casella;
+
+    printf("master: inizio generazione nuove bandiere\n");
 
     num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN + 1)) + SO_FLAG_MIN;
 
@@ -441,6 +447,7 @@ int initBandiere() {
         mc_bandiere[i].pos_band.y = -1;
     }
 
+    printf("master: pre loop piazzamento\n");
     /* 
     per ogni bandiera randomizzo i valori fino a quando non trovo 
     una cella libera senza altre bandiere "troppo vicine" 
@@ -474,6 +481,7 @@ int initBandiere() {
         mc_char_scac[INDEX(casella)] = (i + 'A');
         #endif
     }
+    printf("master: post loop piazzamento\n");
     
     #if DEBUG
     testSemToken();
@@ -514,11 +522,12 @@ int initBandiere() {
         msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_PERCORSO), 0);
         TEST_ERROR;
 
+        printf("master: ricevuto messaggio di fine calcolo percorsi num %d\n", i + 1);
         #if DEBUG
         printf("master: fine percorsi giocatore %d\n", (i + 1));
         #endif
     }
-
+    printf("master: fine generazione nuove bandiere\n");
     return num_band;
 }
 
@@ -537,7 +546,7 @@ int checkPosBandiere(coord casella, int num_band_piazzate) {
     if(num_band_piazzate == 0 && mc_char_scac[INDEX(casella)] != '0') return FALSE;
 
     /* dalla seconda in poi controllo che la bandiera che il master piazza sia distante dalle altre */
-    for(i = 0; i <= num_band_piazzate && (mc_bandiere[i].pos_band.x != -1 && mc_bandiere[i].pos_band.y != -1); i++)
+    for(i = 0; i <= num_band_piazzate; i++)
         if(calcDist(casella, mc_bandiere[i].pos_band) < DIST_BAND
             || mc_char_scac[INDEX(casella)] != '0')
             return FALSE;
@@ -561,7 +570,7 @@ void signalHandler(int signal_number) {
     /* attesa terminazione di tutti i giocatori e pedine */
     while(wait(&status) > 0);
 
-    stampaScacchiera();
+    // stampaScacchiera();
 
     /* detach e rm mc, sem, msg */
     somebodyTookMaShmget();

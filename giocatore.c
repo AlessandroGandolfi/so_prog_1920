@@ -291,11 +291,15 @@ void gestRound() {
         printf("gioc %d: ricezione msg band\n", (pos_token + 1));
         #endif
         
+        printf("giocatore %d: attesa nuovo id bandiere\n", pos_token + 1);
+
         /* ricezione messaggio con id di mc con bandiere */
         do {
             errno = 0;
             msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
         } while(errno == EINTR);
+
+        printf("giocatore %d: ricevuto nuovo id bandiere\n", pos_token + 1);
 
         mc_id_bandiere = msg_new_band.ind;
         num_band_round = msg_new_band.id_band;
@@ -328,6 +332,8 @@ void initObiettivi() {
 
     mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
     TEST_ERROR;
+
+    // printf("giocatore %d: collegato a mc bandiere\n", (pos_token + 1));
 
     #if DEBUG
     printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), mc_id_bandiere);
@@ -373,6 +379,8 @@ void initObiettivi() {
     shmdt(mc_bandiere);
     TEST_ERROR;
     
+    // printf("giocatore %d: scollegato da mc bandiere\n", pos_token + 1);
+
     for(i = 0; i < SO_NUM_P; i++) {
         if(mc_ped_squadra[i].id_band != -1) {
             msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
@@ -380,6 +388,7 @@ void initObiettivi() {
             msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
             TEST_ERROR;
 
+            printf("giocatore %d: invio messaggio obiettivo a pedina %d\n", pos_token + 1, i + 1);
             /* 
             msg per assicurarsi che prima dell'inizio di 
             un round tutte le pedine con un obiettivo
@@ -387,12 +396,16 @@ void initObiettivi() {
             */
             msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (pids_pedine[i] + MSG_PERCORSO), 0);
             TEST_ERROR;
+            
+            printf("giocatore %d: ricevuto messaggio fine calcolo pedina %d\n", pos_token + 1, i + 1);
         }
     }
 
     /* msg a master fine calcolo percorsi per inizio round */
     msg_perc.mtype = (long) getppid() + MSG_PERCORSO;
     msgsnd(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), 0);
+
+    printf("giocatore %d: inviato messaggio fine calcolo pre round\n", pos_token + 1);
 
     #if DEBUG
     printf("gioc %d: invio msg a master inizio round\n", (pos_token + 1));
@@ -443,47 +456,51 @@ void nuoviObiettivi() {
     msg_conf msg_obiettivo;
 
     mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
-    TEST_ERROR;
+    // TEST_ERROR;
 
-    for(i = 0; i < num_band_round; i++) {
-        if(!band_assegnate[i]) {
-            id_ped_sq = -1;
-            dist_min = SO_N_MOVES;
-            
-            for(j = 0; j < SO_NUM_P; j++) {
-                /* se la pedina ha come obiettivo una bandiera presa o non ha obiettivo */
-                if((mc_ped_squadra[j].id_band != -1 && mc_bandiere[mc_ped_squadra[j].id_band].presa) 
-                    || mc_ped_squadra[j].id_band == -1) {
-                    dist_ped = calcDist(mc_bandiere[i].pos_band, mc_ped_squadra[j].pos_attuale);
-                    
-                    /* 
-                    ha abbastanza mosse per raggiungere la bandiera 
-                    e sono minori di quelle richieste dalla precedente pedina
-                    */
-                    if(dist_ped < mc_ped_squadra[j].mosse_rim && dist_min > dist_ped) {
-                        dist_min = dist_ped;
-                        id_ped_sq = j;
-                    } 
+    // temporaneo, da capire se puó servire nel caso il giocatore stia eseguendo questa 
+    // funzione durante la fine di un round e la mc venisse distrutta prima dell'shmat
+    if(errno != EINVAL) {
+        for(i = 0; i < num_band_round; i++) {
+            if(!band_assegnate[i]) {
+                id_ped_sq = -1;
+                dist_min = SO_N_MOVES;
+                
+                for(j = 0; j < SO_NUM_P; j++) {
+                    /* se la pedina ha come obiettivo una bandiera presa o non ha obiettivo */
+                    if((mc_ped_squadra[j].id_band != -1 && mc_bandiere[mc_ped_squadra[j].id_band].presa) 
+                        || mc_ped_squadra[j].id_band == -1) {
+                        dist_ped = calcDist(mc_bandiere[i].pos_band, mc_ped_squadra[j].pos_attuale);
+                        
+                        /* 
+                        ha abbastanza mosse per raggiungere la bandiera 
+                        e sono minori di quelle richieste dalla precedente pedina
+                        */
+                        if(dist_ped < mc_ped_squadra[j].mosse_rim && dist_min > dist_ped) {
+                            dist_min = dist_ped;
+                            id_ped_sq = j;
+                        } 
+                    }
+                }
+
+                if(id_ped_sq != -1 && !semctl(token_gioc, pos_token, GETVAL, 0)) {
+                    band_assegnate[i] = TRUE;
+                    mc_ped_squadra[id_ped_sq].obiettivo = mc_bandiere[i].pos_band;
+                    mc_ped_squadra[id_ped_sq].id_band = i;
+
+                    /* printf("gioc %d: msg a ped %d ob %d\n", (pos_token + 1), id_ped_sq, i); */
+
+                    msg_obiettivo.mtype = (long) (pids_pedine[id_ped_sq] + MSG_OBIETTIVO);
+
+                    msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
+                    TEST_ERROR;
                 }
             }
-
-            if(id_ped_sq != -1 && !semctl(token_gioc, pos_token, GETVAL, 0)) {
-                band_assegnate[i] = TRUE;
-                mc_ped_squadra[id_ped_sq].obiettivo = mc_bandiere[i].pos_band;
-                mc_ped_squadra[id_ped_sq].id_band = i;
-
-                /* printf("gioc %d: msg a ped %d ob %d\n", (pos_token + 1), id_ped_sq, i); */
-
-                msg_obiettivo.mtype = (long) (pids_pedine[id_ped_sq] + MSG_OBIETTIVO);
-
-                msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
-                TEST_ERROR;
-            }
         }
-    }
 
-    shmdt(mc_bandiere);
-    TEST_ERROR;
+        shmdt(mc_bandiere);
+        TEST_ERROR;
+    }
 }
 
 void signalHandler(int signal_number) {
