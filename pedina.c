@@ -57,8 +57,7 @@ int waitObj() {
     /* ricezione messaggio con id di mc con bandiere */
     msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0);
     TEST_ERROR;
-    if(semctl(token_gioc, pos_token, GETVAL, 0))
-        printf("giocatore %d pedina %d: ricezione messaggio bandiere pre round\n", pos_token + 1, id_ped_sq + 1);
+    
     #if DEBUG
     printf("ped %d: msg obiettivo %d ricevuto\n", (id_ped_sq + 1), mc_ped_squadra[id_ped_sq].id_band);
     #endif
@@ -120,7 +119,6 @@ int calcPercorso() {
         msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
         TEST_ERROR;
 
-        printf("giocatore %d pedina %d: invio messaggio eseguito\n", pos_token + 1, id_ped_sq + 1);
         #if DEBUG
         /* printf("ped %d: msg fine calc percorso a gioc %d\n", (id_ped_sq + 1), pos_token); */
         #endif
@@ -262,16 +260,12 @@ void gestRound() {
             TEST_ERROR;
         }
         
-        /* richiesta di un nuovo obiettivo una volta che pedina é di nuovo ferma */
-        kill(getppid(), SIGUSR1);
     } while(TRUE);
 }
 
 void signalHandler(int signal_number) {
     errno = 0;
     
-    /* printf("ped gioc %d: %d %d\n", (pos_token + 1), mc_ped_squadra[ind_ped_sq].pos_attuale.y, mc_ped_squadra[ind_ped_sq].pos_attuale.x); */
-
     signal(SIGUSR2, SIG_DFL);
 
     shmdt(mc_char_scac);

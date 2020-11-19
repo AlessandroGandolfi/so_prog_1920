@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
     checkMode(argc, argv[1]);
 
     #if DEBUG
-    // testConfig();
+    /* testConfig(); */
     #endif
 
     /* time torna int secondi da mezzanotte primo gennaio 1970 */
@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
     /* master aspetta che l'ultimo giocatore abbia piazzato l'ultima pedina */
     #if DEBUG
-    // printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda);
+    /* printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda); */
     #endif
     msgrcv(msg_id_coda, &msg_ped, sizeof(msg_conf) - sizeof(long), (long) (giocatori[SO_NUM_G - 1].pid + MSG_PIAZZAMENTO), 0);
     TEST_ERROR;
@@ -337,7 +337,7 @@ void initGiocatori(char *mode) {
     }
 
     #if DEBUG
-    // printf("master: fine creazione giocatori\n");
+    /* printf("master: fine creazione giocatori\n"); */
     #endif
 }
 
@@ -359,16 +359,12 @@ void gestRound() {
         for(i = 0; i < SO_NUM_G; i++)
             sem_arg.array[i] = 0;
 
-        printf("------------inizio------------\n");
-
-        // stampaScacchiera();
+        stampaScacchiera();
 
         alarm(SO_MAX_TIME);
 
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
-
-        printf("master: inizio attesa conquista bandiere\n");
 
         for(i = 0; i < num_band; i++) {
             msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
@@ -387,8 +383,6 @@ void gestRound() {
             } else i--;
         }
 
-        printf("master: bandiere conquistate\n");
-
         for(i = 0; i < SO_NUM_G; i++)
             sem_arg.array[i] = 1;
 
@@ -397,8 +391,7 @@ void gestRound() {
 
         alarm(0);
 
-        // stampaScacchiera();
-        printf("-------------fine-------------\n");
+        stampaScacchiera();
 
         num_round++;
     } while(TRUE);
@@ -416,14 +409,10 @@ int initBandiere() {
     semun sem_arg;
     coord casella;
 
-    printf("master: inizio generazione nuove bandiere\n");
-
     num_band = (rand() % (SO_FLAG_MAX - SO_FLAG_MIN + 1)) + SO_FLAG_MIN;
 
     /* valgono tutte almeno un punto */
     tot_punti_rim = SO_ROUND_SCORE - num_band;
-
-    printf("%d bandiere piazzate\n", num_band);
 
     /* gestione cancellazione dopo primo round */
     if(num_round > 1) {
@@ -447,7 +436,6 @@ int initBandiere() {
         mc_bandiere[i].pos_band.y = -1;
     }
 
-    printf("master: pre loop piazzamento\n");
     /* 
     per ogni bandiera randomizzo i valori fino a quando non trovo 
     una cella libera senza altre bandiere "troppo vicine" 
@@ -481,7 +469,6 @@ int initBandiere() {
         mc_char_scac[INDEX(casella)] = (i + 'A');
         #endif
     }
-    printf("master: post loop piazzamento\n");
     
     #if DEBUG
     testSemToken();
@@ -503,7 +490,7 @@ int initBandiere() {
     /* manda un messaggio per giocatore */
     for(i = 0; i < SO_NUM_G; i++) {
         #if DEBUG
-        // printf("master: invio id mc band %d a giocatore %d\n", mc_id_band, (i + 1));
+        /* printf("master: invio id mc band %d a giocatore %d\n", mc_id_band, (i + 1)); */
         #endif
 
         msg_new_band.id_band = num_band;
@@ -522,12 +509,11 @@ int initBandiere() {
         msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_PERCORSO), 0);
         TEST_ERROR;
 
-        printf("master: ricevuto messaggio di fine calcolo percorsi num %d\n", i + 1);
         #if DEBUG
         printf("master: fine percorsi giocatore %d\n", (i + 1));
         #endif
     }
-    printf("master: fine generazione nuove bandiere\n");
+    
     return num_band;
 }
 
@@ -570,7 +556,7 @@ void signalHandler(int signal_number) {
     /* attesa terminazione di tutti i giocatori e pedine */
     while(wait(&status) > 0);
 
-    // stampaScacchiera();
+    stampaScacchiera();
 
     /* detach e rm mc, sem, msg */
     somebodyTookMaShmget();
