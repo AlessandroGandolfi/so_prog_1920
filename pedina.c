@@ -55,8 +55,10 @@ int waitObj() {
     errno = 0;
 
     /* ricezione messaggio con id di mc con bandiere */
-    msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0);
-    TEST_ERROR;
+    if(msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0) < 0){
+        printf("AAAOOOOOOOOOO");
+        TEST_ERROR;
+    }
     if(semctl(token_gioc, pos_token, GETVAL, 0))
         printf("giocatore %d pedina %d: ricezione messaggio bandiere pre round\n", pos_token + 1, id_ped_sq + 1);
     #if DEBUG
@@ -263,7 +265,7 @@ void gestRound() {
         }
         
         /* richiesta di un nuovo obiettivo una volta che pedina é di nuovo ferma */
-        kill(getppid(), SIGUSR1);
+        /*kill(getppid(), SIGUSR1);*/
     } while(TRUE);
 }
 

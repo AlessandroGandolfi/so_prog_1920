@@ -1,4 +1,6 @@
 #include "header.h"
+#include <asm-generic/errno-base.h>
+#include <errno.h>
 
 void initPedine(char *);
 void piazzaPedina(int);
@@ -385,8 +387,8 @@ void initObiettivi() {
         if(mc_ped_squadra[i].id_band != -1) {
             msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
 
-            msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
-            TEST_ERROR;
+            if(msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0) < 0)
+                TEST_ERROR;
 
             printf("giocatore %d: invio messaggio obiettivo a pedina %d\n", pos_token + 1, i + 1);
             /* 
@@ -394,6 +396,7 @@ void initObiettivi() {
             un round tutte le pedine con un obiettivo
             calcolino il proprio percorso
             */
+            
             msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (pids_pedine[i] + MSG_PERCORSO), 0);
             TEST_ERROR;
             
