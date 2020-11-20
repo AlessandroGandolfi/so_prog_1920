@@ -4,6 +4,7 @@ void initPedine(char *);
 void piazzaPedina(int);
 int checkPosPedine(coord);
 void initObiettivi();
+void scanBandiera(int);
 int assegnaObiettivo(coord, int, int);
 
 /* globali */
@@ -311,8 +312,7 @@ void gestRound() {
 /* utilizzata solo per assegnazione degli obiettivi prima dell'inizio del round */
 void initObiettivi() {
     msg_conf msg_perc, msg_obiettivo;
-    int i, j, riga, range_scan, ped_sq;
-    coord check;
+    int i;
 
     mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
     TEST_ERROR;
@@ -321,37 +321,8 @@ void initObiettivi() {
     printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), mc_id_bandiere);
     #endif
 
-    for(i = 0; i < num_band_round; i++) {
-        ped_sq = FALSE;
-        range_scan = 0;
-
-        do {
-            range_scan++;
-            /* scan riga da -range a +range */
-            for(riga = -range_scan; riga <= range_scan; riga++) {
-                check.y = mc_bandiere[i].pos_band.y;
-                check.y += riga;
-                if(check.y >= 0 && check.y < SO_ALTEZZA) {
-                    /* scan da sx a centro */
-                    check.x = mc_bandiere[i].pos_band.x;
-                    check.x -= (range_scan - abs(riga));
-                    if(check.x >= 0 && mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0'))
-                        ped_sq = assegnaObiettivo(check
-                                                , i
-                                                , range_scan);
-
-                    /* da dopo centro a dx */
-                    check.x += 2 * (range_scan - abs(riga));
-                    if(check.x < SO_BASE 
-                        && (range_scan - abs(riga)) > 0 
-                        && mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0'))
-                        ped_sq = assegnaObiettivo(check
-                                                , i
-                                                , range_scan);
-                }
-            }
-        } while(!ped_sq);
-    }
+    for(i = 0; i < num_band_round; i++)
+        scanBandiera(i);
 
     shmdt(mc_bandiere);
     TEST_ERROR;
@@ -382,20 +353,75 @@ void initObiettivi() {
     #endif
 }
 
+void scanBandiera(int id_band) {
+    int riga, range_scan, ped_sq, ped_cont;
+    coord check;
+
+    ped_sq = FALSE;
+    ped_cont = SO_NUM_P;
+    range_scan = 0;
+
+    do {
+        range_scan++;
+        /* scan riga da -range a +range */
+        for(riga = -range_scan; riga <= range_scan; riga++) {
+            check.y = mc_bandiere[id_band].pos_band.y;
+            check.y += riga;
+            if(check.y >= 0 && check.y < SO_ALTEZZA) {
+                /* scan da sx a centro */
+                check.x = mc_bandiere[id_band].pos_band.x;
+                check.x -= (range_scan - abs(riga));
+                if(check.x >= 0 && mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
+                    ped_cont--;
+                    ped_sq = assegnaObiettivo(check
+                                            , id_band
+                                            , range_scan);
+                }
+
+                /* da dopo centro a dx */
+                check.x += 2 * (range_scan - abs(riga));
+                if(check.x < SO_BASE 
+                    && (range_scan - abs(riga)) > 0 
+                    && mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
+                    ped_cont--;
+                    ped_sq = assegnaObiettivo(check
+                                            , id_band
+                                            , range_scan);
+                }
+            }
+        }
+
+    /* 
+    esco dal ciclo se una pedina é stata assegnata alla 
+    bandiera oppure se nessuna delle pedine puó arrivarci
+    */
+    } while(!ped_sq && ped_cont);
+}
+
 int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
-    int i;
+    int ped_index;
 
-    i = 0;
+    ped_index = 0;
 
-    while(calcDist(mc_ped_squadra[i].pos_attuale, check)) i++;
+    while(calcDist(mc_ped_squadra[ped_index].pos_attuale, check)) ped_index++;
+    
+    if(mc_ped_squadra[ped_index].mosse_rim < mosse_richieste) /* se la pedina non ha abbastanza mosse */
+        return FALSE;
 
-    if(mc_ped_squadra[i].id_band != -1 /* se la pedine ha un obiettivo assegnato */
-            // && mc_bandiere[id_band].punti <= mc_bandiere[mc_ped_squadra[i].id_band].punti) /* se la bandiera giá assegnata vale di piú di quella nuova */
-        || mc_ped_squadra[i].mosse_rim < mosse_richieste) /* o se la pedina non ha abbastanza mosse */
-        return FALSE; /* non assegno pedina */
+    if(mc_ped_squadra[ped_index].id_band != -1) { /* se la pedina ha giá un obiettivo assegnato */
+        if(mc_bandiere[id_band].punti <= mc_bandiere[mc_ped_squadra[ped_index].id_band].punti) /* se la bandiera giá assegnata vale di piú di quella nuova */
+            return FALSE; /* non assegno pedina */
 
-    mc_ped_squadra[i].obiettivo = mc_bandiere[id_band].pos_band;
-    mc_ped_squadra[i].id_band = id_band;
+        /* 
+        nel caso una pedina venisse riassegnata ne 
+        cerco un'altra che possa prendere quella bandiera 
+        (se disponibile)
+        */
+        scanBandiera(mc_ped_squadra[ped_index].id_band);
+    }
+
+    mc_ped_squadra[ped_index].obiettivo = mc_bandiere[id_band].pos_band;
+    mc_ped_squadra[ped_index].id_band = id_band;
 
     #if DEBUG
     printf("gioc %d: band %d assegnata a ped\n", pos_token, id_band);
