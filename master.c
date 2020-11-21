@@ -533,8 +533,8 @@ int checkPosBandiere(coord casella, int num_band_piazzate) {
 
     /* dalla seconda in poi controllo che la bandiera che il master piazza sia distante dalle altre */
     for(i = 0; i <= num_band_piazzate; i++)
-        if(calcDist(casella, mc_bandiere[i].pos_band) < DIST_BAND
-            || mc_char_scac[INDEX(casella)] != '0')
+        if(mc_char_scac[INDEX(casella)] != '0'
+            || calcDist(casella, mc_bandiere[i].pos_band) < DIST_BAND)
             return FALSE;
 
     return TRUE;

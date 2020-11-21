@@ -2,7 +2,7 @@
 
 void initPedine(char *);
 void piazzaPedina(int);
-int checkPosPedine(coord);
+int checkPosPedine(coord, int);
 void initObiettivi();
 void scanBandiera(int);
 int assegnaObiettivo(coord, int, int);
@@ -232,7 +232,7 @@ void piazzaPedina(int ind_pedine) {
     do {
         casella.y = rand() % SO_ALTEZZA;
         casella.x = rand() % SO_BASE;
-    } while(!checkPosPedine(casella));
+    } while(!checkPosPedine(casella, ind_pedine));
 
     sops.sem_num = INDEX(casella);
     sops.sem_op = -1;
@@ -255,16 +255,22 @@ TRUE se supera controlli, FALSE altrimenti
 param:
 - coordinate generate
 */
-int checkPosPedine(coord casella) {
+int checkPosPedine(coord casella, int num_ped_piazzate) {
     int i;
 
     /* 
-    ciclo su array fino a quando non trovo band con coord -1, -1 (da lí in poi non ancora piazzate) 
-    o se ne trovo una giá piazzata troppo vicina 
+    per la prima controllo solo che non la casella 
+    non sia occupata da una pedina nemica 
     */
-    for(i = 0; i < SO_NUM_P && (mc_ped_squadra[i].pos_attuale.x != -1 && mc_ped_squadra[i].pos_attuale.y != -1); i++)
-        if(calcDist(casella, mc_ped_squadra[i].pos_attuale) < DIST_PED
-            || mc_char_scac[INDEX(casella)] != '0') 
+    if(num_ped_piazzate == 0 && mc_char_scac[INDEX(casella)] != '0') return FALSE;
+
+    /* 
+    dalla seconda in poi controllo che ogni pedina sia "abbastanza lontana"
+    dalle altre e che la casella non sia giá occupata
+    */
+    for(i = 0; i <= num_ped_piazzate; i++)
+        if(mc_char_scac[INDEX(casella)] != '0'
+            || calcDist(casella, mc_ped_squadra[i].pos_attuale) < DIST_PED) 
             return FALSE;
 
     return TRUE;
