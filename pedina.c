@@ -114,15 +114,13 @@ int calcPercorso() {
     }
 
     /* msg send fine calcolo percorso a giocatore prima di inizio round */
-    if(semctl(token_gioc, pos_token, GETVAL, 0)) {
-        msg_fine_perc.mtype = (long) (getpid() + MSG_PERCORSO);
-        msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
-        TEST_ERROR;
+    msg_fine_perc.mtype = (long) (getpid() + MSG_PERCORSO);
+    msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
+    TEST_ERROR;
 
-        #if DEBUG
-        /* printf("ped %d: msg fine calc percorso a gioc %d\n", (id_ped_sq + 1), pos_token); */
-        #endif
-    }
+    #if DEBUG
+    /* printf("ped %d: msg fine calc percorso a gioc %d\n", (id_ped_sq + 1), pos_token); */
+    #endif
 
     return num_mosse;
 }
