@@ -1,7 +1,8 @@
 /*
+/bin/*
 /config/*
-!*.c
-!*.h
+!src/*.c
+!src/*.h
 !makefile
 !/config
 !/config/*.txt

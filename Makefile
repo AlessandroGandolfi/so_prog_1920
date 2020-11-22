@@ -9,19 +9,19 @@ clean:
 	-pkill -f ./pedina
 	-pkill -f ./giocatore
 
-master: master.c header.h Makefile
-	gcc $(cflags) master.c -o master
+master: src/master.c src/header.h Makefile
+	gcc $(cflags) src/master.c -o bin/master
 
-giocatore: giocatore.c header.h Makefile
-	gcc $(cflags) giocatore.c -o giocatore
+giocatore: src/giocatore.c src/header.h Makefile
+	gcc $(cflags) src/giocatore.c -o bin/giocatore
 
-pedina: pedina.c header.h Makefile
-	gcc $(cflags) pedina.c -o pedina
+pedina: src/pedina.c src/header.h Makefile
+	gcc $(cflags) src/pedina.c -o bin/pedina
 
 clock:
-	touch *.c *.h
+	touch src/*.c src/*.h
 
 all: clock buildall run
 
 run:
-	./master $(mode)
+	./bin/master $(mode)
