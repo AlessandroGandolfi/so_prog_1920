@@ -1,5 +1,4 @@
 #include "header.h"
-#include <unistd.h>
 
 int waitObj();
 int calcPercorso();
@@ -190,7 +189,7 @@ void aggiornaStato() {
 
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
-    //nanosleep(&arg_sleep, NULL);
+    nanosleep(&arg_sleep, NULL);
 }
 
 /* dist manhattan */
@@ -271,7 +270,7 @@ void signalHandler(int signal_number) {
     switch(signal_number){
         case SIGUSR1:
             end_game = FALSE;
-            while(1) pause();
+            while(TRUE) pause();
             break;
         case SIGUSR2:
             shmdt(mc_char_scac);

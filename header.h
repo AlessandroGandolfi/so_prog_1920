@@ -15,6 +15,7 @@
 #include <sys/sem.h>
 #include <math.h>
 #include <dirent.h>
+#include <asm-generic/errno-base.h>
 
 #define TRUE 1
 #define FALSE 0

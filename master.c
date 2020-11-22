@@ -1,8 +1,4 @@
 #include "header.h"
-#include <asm-generic/errno-base.h>
-#include <signal.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
 void checkMode(int, char *);
 void initRisorse();
@@ -583,7 +579,7 @@ void signalHandler(int signal_number) {
             for(i = 0; i < SO_NUM_G; i++)
                 kill(-giocatori[i].pid, SIGUSR2);
 
-            while(1) pause();
+            while(TRUE) pause();
             break;
         
         case SIGCHLD:

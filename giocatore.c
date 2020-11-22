@@ -1,6 +1,4 @@
 #include "header.h"
-#include <signal.h>
-#include <unistd.h>
 
 void initPedine(char *);
 void piazzaPedina(int);
@@ -47,8 +45,6 @@ int main(int argc, char **argv) {
 	new_signal_handler.sa_flags = 0;
 	sigemptyset(& new_signal_handler.sa_mask);
     
-    sigaction(SIGUSR2, &new_signal_handler, NULL);
-    TEST_ERROR
     sigaction(SIGCHLD, &new_signal_handler, 0);
 	TEST_ERROR
     sigaction(SIGUSR1, &new_signal_handler, 0);
@@ -463,25 +459,9 @@ void signalHandler(int signal_number) {
 
         case SIGUSR1:
             end_game = FALSE;
-
-            for(i = 0; i < SO_NUM_P; i++)
-                kill(pids_pedine[i], SIGUSR1);
-            while(1) pause();
-
-        case SIGUSR2:
-
-            for(i = 0; i < SO_NUM_P; i++)
-                kill(pids_pedine[i], SIGUSR2);
-
-            // for(i = 0; i < SO_NUM_P; i++)
-            //     kill(pids_pedine[i], SIGSTOP);
-
-            // for(i = 0; i < SO_NUM_P; i++)
-            //     kill(pids_pedine[i], SIGCONT);
-
-            printf("kill a pedine");
-            while(1) pause();
+            while(TRUE) pause();
             break;
+
 
         case SIGCHLD:
             while ((kidpid_ped = waitpid(-1, &status, WNOHANG)) > 0) {
@@ -497,8 +477,6 @@ void signalHandler(int signal_number) {
                 exit(EXIT_SUCCESS);
 			}
             break;
-
-
 
     }
 
