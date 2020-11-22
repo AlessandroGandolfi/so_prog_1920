@@ -1,4 +1,6 @@
 #include "header.h"
+#include <signal.h>
+#include <unistd.h>
 
 void initPedine(char *);
 void piazzaPedina(int);
@@ -20,6 +22,7 @@ int mc_id_squadra /* id mc array pedine della squadra */
     , pos_token /* numero del giocatore */
     , token_gioc; /* id del semaforo usato per piazzare le pedine e per gestione del round */
 pid_t *pids_pedine;
+int end_game;
 
 /* 
 parametri a giocatore
@@ -39,9 +42,21 @@ int main(int argc, char **argv) {
     getConfig(argv[1]);
 
     srand(time(NULL) + getpid());
-
+    
     new_signal_handler.sa_handler = &signalHandler;
+	new_signal_handler.sa_flags = 0;
+	sigemptyset(& new_signal_handler.sa_mask);
+    
     sigaction(SIGUSR2, &new_signal_handler, NULL);
+    TEST_ERROR
+    sigaction(SIGCHLD, &new_signal_handler, 0);
+	TEST_ERROR
+    sigaction(SIGUSR1, &new_signal_handler, 0);
+	TEST_ERROR
+    // sigaction(SIGSTOP, &new_signal_handler, 0);
+	// TEST_ERROR
+    // sigaction(SIGCONT, &new_signal_handler, 0);
+	// TEST_ERROR
 
     token_gioc = atoi(argv[2]);
     pos_token = atoi(argv[3]);
@@ -285,6 +300,8 @@ void gestRound() {
     msg_band msg_new_band;
     int i;
 
+    end_game = TRUE;
+
     do {
         #if DEBUG
         printf("gioc %d: ricezione msg band\n", (pos_token + 1));
@@ -312,7 +329,7 @@ void gestRound() {
         /* assegnazione obiettivi */
         initObiettivi();
 
-    } while(TRUE);
+    } while(end_game);
 }
 
 /* utilizzata solo per assegnazione degli obiettivi prima dell'inizio del round */
@@ -402,6 +419,7 @@ void scanBandiera(int id_band) {
     bandiera oppure se nessuna delle pedine puó arrivarci
     */
     } while(!ped_sq && ped_cont);
+    //if(ped_cont == 0) kill(getppid(), SIGINT);
 }
 
 int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
@@ -437,20 +455,63 @@ int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
 }
 
 void signalHandler(int signal_number) {
-    int status;
+    int i, status, kidpid_ped;
     
     errno = 0;
 
-    signal(SIGUSR2, SIG_DFL);
+    switch(signal_number){
+
+        case SIGUSR1:
+            end_game = FALSE;
+
+            for(i = 0; i < SO_NUM_P; i++)
+                kill(pids_pedine[i], SIGUSR1);
+            while(1) pause();
+
+        case SIGUSR2:
+
+            for(i = 0; i < SO_NUM_P; i++)
+                kill(pids_pedine[i], SIGUSR2);
+
+            // for(i = 0; i < SO_NUM_P; i++)
+            //     kill(pids_pedine[i], SIGSTOP);
+
+            // for(i = 0; i < SO_NUM_P; i++)
+            //     kill(pids_pedine[i], SIGCONT);
+
+            printf("kill a pedine");
+            while(1) pause();
+            break;
+
+        case SIGCHLD:
+            while ((kidpid_ped = waitpid(-1, &status, WNOHANG)) > 0) {
+				if (WEXITSTATUS(status) != 0) {
+					printf("OPS: kid %d is dead status %d\n", kidpid_ped, WEXITSTATUS(status));
+				}
+			}
+
+			if (errno == ECHILD) {
+				printf("\npedine ammazzate tutte!!!!!\n");
+                shmdt(mc_char_scac);
+                shmdt(mc_ped_squadra);
+                exit(EXIT_SUCCESS);
+			}
+            break;
+
+
+
+    }
+
+    //signal(SIGUSR2, SIG_DFL);
     
     /* attesa terminazione di tutte le pedine */
-    while(wait(&status) > 0);
+    // while(wait(&status) > 0);
 
-    shmdt(mc_char_scac);
+    // shmdt(mc_char_scac);
 
-    shmdt(mc_ped_squadra);
+    // shmdt(mc_ped_squadra);
 
-    exit(EXIT_SUCCESS);
+    // exit(EXIT_SUCCESS);
 }
 
 #if DEBUG

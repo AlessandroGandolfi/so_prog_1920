@@ -1,4 +1,5 @@
 #include "header.h"
+#include <unistd.h>
 
 int waitObj();
 int calcPercorso();
@@ -12,7 +13,7 @@ long pid_master;
 int mc_id_squadra, msg_id_coda, mc_id_scac, sem_id_scac;
 int id_ped_sq, pos_token, token_gioc, ind_mossa;
 coord *percorso;
-
+int end_game;
 /* 
 parametri a pedine
 0 - path relativo file pedina
@@ -40,13 +41,15 @@ int main(int argc, char **argv) {
 
     signal(SIGUSR2, &signalHandler);
     TEST_ERROR;
+    signal(SIGUSR1, &signalHandler);
+    TEST_ERROR;
 
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
 
     gestRound();
 
-    return 0;
+    //return 0;
 }
 
 int waitObj() {
@@ -187,7 +190,7 @@ void aggiornaStato() {
 
     arg_sleep.tv_sec = 0;
     arg_sleep.tv_nsec = SO_MIN_HOLD_NSEC;
-    nanosleep(&arg_sleep, NULL);
+    //nanosleep(&arg_sleep, NULL);
 }
 
 /* dist manhattan */
@@ -237,6 +240,7 @@ void gestRound() {
     struct sembuf sops;
     msg_band_presa msg_presa;
 
+    end_game=TRUE;
     do {
         num_mosse = waitObj();
 
@@ -258,19 +262,23 @@ void gestRound() {
             TEST_ERROR;
         }
         
-    } while(TRUE);
+    } while(end_game);
 }
 
 void signalHandler(int signal_number) {
     errno = 0;
-    
-    signal(SIGUSR2, SIG_DFL);
 
-    shmdt(mc_char_scac);
-    TEST_ERROR;
-    
-    shmdt(mc_ped_squadra);
-    TEST_ERROR;
-
-    exit(EXIT_SUCCESS);
+    switch(signal_number){
+        case SIGUSR1:
+            end_game = FALSE;
+            while(1) pause();
+            break;
+        case SIGUSR2:
+            shmdt(mc_char_scac);
+            TEST_ERROR;
+            shmdt(mc_ped_squadra);
+            TEST_ERROR;
+            exit(EXIT_SUCCESS);
+    }
+    //signal(SIGUSR2, SIG_DFL);
 }

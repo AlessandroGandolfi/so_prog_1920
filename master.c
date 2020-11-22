@@ -1,4 +1,8 @@
 #include "header.h"
+#include <asm-generic/errno-base.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 void checkMode(int, char *);
 void initRisorse();
@@ -14,6 +18,7 @@ gioc *giocatori;
 char *mc_char_scac;
 band *mc_bandiere;
 int mc_id_scac, mc_id_band, msg_id_coda, sem_id_scac, token_gioc, num_round;
+int end_game;
 
 int main(int argc, char **argv) {
     msg_conf msg_ped;
@@ -32,6 +37,8 @@ int main(int argc, char **argv) {
     TEST_ERROR;
     signal(SIGALRM, &signalHandler);
     TEST_ERROR;
+    signal(SIGCHLD, &signalHandler);
+    TEST_ERROR
 
     initRisorse();
 
@@ -47,7 +54,7 @@ int main(int argc, char **argv) {
 
     gestRound();
 
-    return 0;
+    //return 0;
 }
 
 /* 
@@ -197,6 +204,11 @@ void stampaScacchiera() {
     ped *mc_ped_squadra;
     struct timespec arg_sleep;
 
+    /*perchè durante l'esecuzione viene settato a su qualche syscall
+       e quando si chiama shmat nelle prossime istruzioni il TEST_ERROR
+       stampa errore con errno=10 (no child process) */
+    errno = 0;
+
     /* mosse rimanenti */
     for(i = 0; i < SO_NUM_G; i++) {
         giocatori[i].tot_mosse_rim = 0;
@@ -213,7 +225,7 @@ void stampaScacchiera() {
 
     #if ((defined (LINUX) || defined (__linux__) || defined (__APPLE__)) && !DEBUG)
     /* clear console, supportato solo su UNIX */
-    printf("\033[2J\033[H");
+    //printf("\033[2J\033[H");
     #endif
 
     /* stampa matrice caratteri */
@@ -350,6 +362,7 @@ void gestRound() {
     sem_arg.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
 
     num_round = 1;
+    end_game = TRUE;
 
     /* TODO controllare che ci siano tutte le periferiche*/
     do {
@@ -362,9 +375,12 @@ void gestRound() {
         stampaScacchiera();
 
         alarm(SO_MAX_TIME);
+        
+        
 
         semctl(token_gioc, 0, SETALL, sem_arg);
         TEST_ERROR;
+
 
         for(i = 0; i < num_band; i++) {
             msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
@@ -390,11 +406,13 @@ void gestRound() {
         TEST_ERROR;
 
         alarm(0);
-
+        
         stampaScacchiera();
 
         num_round++;
     } while(TRUE);
+    //alarm(SO_MAX_TIME);
+
 }
 
 /*
@@ -546,25 +564,68 @@ int calcDist(coord cas1, coord cas2) {
 }
 
 void signalHandler(int signal_number) {
-    int status, i;
+    int status, i, kidpid;
     
     errno = 0;
 
-    for(i = 0; i < SO_NUM_G; i++)
-        kill(-giocatori[i].pid, SIGUSR2);
+    switch(signal_number){
+        case SIGALRM:
+        case SIGINT:
+
+            end_game = FALSE;
+
+            for(i = 0; i < SO_NUM_G; i++)
+                kill(-giocatori[i].pid, SIGUSR1);
+
+            printf("\nSTAMPOO SCACCHIERAAAAAA DIO CANEE!!\n");
+            stampaScacchiera();
+
+            for(i = 0; i < SO_NUM_G; i++)
+                kill(-giocatori[i].pid, SIGUSR2);
+
+            while(1) pause();
+            break;
+        
+        case SIGCHLD:
+            while ((kidpid = waitpid(-1, &status, WNOHANG)) > 0) {
+				if (WEXITSTATUS(status) != 0) {
+					printf("OPS: kid %d is dead status %d\n", kidpid, WEXITSTATUS(status));
+				}
+			}
+
+			if (errno == ECHILD) {
+				printf("\nIl gioco è finito!!!!!\n");
+                somebodyTookMaShmget();
+                signal(SIGALRM, SIG_DFL);
+                signal(SIGINT, SIG_DFL);
+                exit(EXIT_SUCCESS);
+			}
+            break;
+
+            // somebodyTookMaShmget();
+
+            // signal(SIGALRM, SIG_DFL);
+            // signal(SIGINT, SIG_DFL);
+
+            // exit(EXIT_SUCCESS);
+
+    }
+
+    // for(i = 0; i < SO_NUM_G; i++)
+    //     kill(-giocatori[i].pid, SIGUSR2);
 
     /* attesa terminazione di tutti i giocatori e pedine */
-    while(wait(&status) > 0);
+    // while(wait(&status) > 0);
 
-    stampaScacchiera();
+    // stampaScacchiera();
 
-    /* detach e rm mc, sem, msg */
-    somebodyTookMaShmget();
+    // /* detach e rm mc, sem, msg */
+    // somebodyTookMaShmget();
 
-    signal(SIGALRM, SIG_DFL);
-    signal(SIGINT, SIG_DFL);
+    // signal(SIGALRM, SIG_DFL);
+    // signal(SIGINT, SIG_DFL);
 
-    exit(EXIT_SUCCESS);
+    // exit(EXIT_SUCCESS);
 }
 
 #if DEBUG
