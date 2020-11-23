@@ -21,7 +21,7 @@ pedina: src/pedina.c src/header.h Makefile
 clock:
 	touch src/*.c src/*.h
 
-all: clock buildall run
+all: buildall run
 
 run:
 	./bin/master $(mode)
