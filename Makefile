@@ -4,7 +4,7 @@ mode ?= ""
 buildall: clock master giocatore pedina
 
 clean:
-	rm -f *o master giocatore pedina *~
+	rm -f *o bin/master bin/giocatore bin/pedina *~
 	ipcrm -a
 	-pkill -f ./pedina
 	-pkill -f ./giocatore
