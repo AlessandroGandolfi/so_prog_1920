@@ -1,5 +1,8 @@
 /*
 /config/*
+/bin/giocatore
+/bin/pedina
+/bin/master
 !*.c
 !*.h
 !makefile

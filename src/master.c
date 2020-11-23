@@ -270,7 +270,7 @@ void initGiocatori(char *mode) {
 
 void init_params_gamers(char* mode, char ** param_giocatori, char tmp_params[][sizeof(char *)]){
 
-    param_giocatori[0] = "./giocatore";
+    param_giocatori[0] = "./bin/giocatore";
     param_giocatori[1] = mode;
     sprintf(tmp_params[0], "%d", token_gioc);
     param_giocatori[2] = tmp_params[0];
@@ -311,7 +311,7 @@ void create_gamers(char ** param_giocatori, char tmp_params[][sizeof(char *)]){
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
             case 0:
-                execv("./giocatore", param_giocatori);
+                execv("./bin/giocatore", param_giocatori);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
             default:

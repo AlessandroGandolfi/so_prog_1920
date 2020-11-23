@@ -140,7 +140,7 @@ void initPedine(char *mode) {
     8 - pid master
     9 - id mem cond scacchiera caratteri
     */
-    param_pedine[0] = "./pedina";
+    param_pedine[0] = "./bin/pedina";
     param_pedine[1] = mode;
     sprintf(tmp_params[0], "%d", token_gioc);
     param_pedine[2] = tmp_params[0];
@@ -212,7 +212,7 @@ void initPedine(char *mode) {
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
             case 0:
-                execv("./pedina", param_pedine);
+                execv("./bin/pedina", param_pedine);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
         }
