@@ -4,7 +4,7 @@ mode ?= ""
 buildall: clock master giocatore pedina
 
 clean:
-	rm -f *o master giocatore pedina *~
+	rm -f *o bin/master bin/giocatore bin/pedina *~
 	ipcrm -a
 	-pkill -f ./pedina
 	-pkill -f ./giocatore
@@ -21,7 +21,7 @@ pedina: src/pedina.c src/header.h Makefile
 clock:
 	touch src/*.c src/*.h
 
-all: clock buildall run
+all: buildall run
 
 run:
 	./bin/master $(mode)
