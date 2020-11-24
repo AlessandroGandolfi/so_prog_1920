@@ -3,8 +3,9 @@
 /bin/giocatore
 /bin/pedina
 /bin/master
-!*.c
-!*.h
+!/src
+!/src/*.c
+!/src/*.h
 !makefile
 !/config
 !/config/*.txt
