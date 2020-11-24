@@ -21,9 +21,9 @@ int main(int argc, char **argv) {
 
 
     signal(SIGINT, &signalHandler);
-    TEST_ERROR;
+    TEST_ERROR
     signal(SIGALRM, &signalHandler);
-    TEST_ERROR;
+    TEST_ERROR
     signal(SIGCHLD, &signalHandler);
     TEST_ERROR
 
@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     /* printf("master: attesa msg ultimo piazzam da %ld, id coda %d\n", (long) giocatori[SO_NUM_G - 1].pid, msg_id_coda); */
     #endif
     msgrcv(msg_id_coda, &msg_ped, sizeof(msg_conf) - sizeof(long), (long) (giocatori[SO_NUM_G - 1].pid + MSG_PIAZZAMENTO), 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     gestRound();
 
@@ -102,14 +102,14 @@ void getConfig(char *mode) {
 void initRisorse() {
     /* creazione coda msg */
     msg_id_coda = msgget(IPC_PRIVATE, IPC_CREAT | IPC_EXCL | 0600);
-    TEST_ERROR;
+    TEST_ERROR
 
     /* creazione e collegamento a mc scacchiera */ 
     mc_id_scac = shmget(IPC_PRIVATE, sizeof(char) * SO_ALTEZZA * SO_BASE, S_IRUSR | S_IWUSR);
-    TEST_ERROR;
+    TEST_ERROR
 
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
     
     /* scacchiera tutta a 0, caratteri sovrascritti da semafori e pedine in futuro */
     memset(mc_char_scac, '0', sizeof(char) * SO_ALTEZZA * SO_BASE);
@@ -131,10 +131,10 @@ void initSemScacchiera() {
     for(i = 0; i < (SO_BASE * SO_ALTEZZA); i++) sem_arg.array[i] = 1; 
 
     sem_id_scac = semget(IPC_PRIVATE, SO_BASE * SO_ALTEZZA, 0600);
-    TEST_ERROR;
+    TEST_ERROR
 
     semctl(sem_id_scac, 0, SETALL, sem_arg);
-    TEST_ERROR;
+    TEST_ERROR
 }
 
 
@@ -143,30 +143,30 @@ void somebodyTookMaShmget() {
     errno = 0;
 
     semctl(sem_id_scac, 0, IPC_RMID);
-    TEST_ERROR;
+    TEST_ERROR
 
     for(i = 0; i < SO_NUM_G; i++) {
         shmctl(giocatori[i].mc_id_squadra, IPC_RMID, NULL);
-        TEST_ERROR;
+        TEST_ERROR
     }
 
     free(giocatori);
     
     shmdt(mc_bandiere);
-    TEST_ERROR;
+    TEST_ERROR
 	shmctl(mc_id_band, IPC_RMID, NULL);
-    TEST_ERROR;
+    TEST_ERROR
 
     shmdt(mc_char_scac);
-    TEST_ERROR;
+    TEST_ERROR
 	shmctl(mc_id_scac, IPC_RMID, NULL);
-    TEST_ERROR;
+    TEST_ERROR
 
     semctl(token_gioc, 0, IPC_RMID);
-    TEST_ERROR;
+    TEST_ERROR
 
     msgctl(msg_id_coda, IPC_RMID, NULL);
-    TEST_ERROR;
+    TEST_ERROR
 }
 
 
@@ -221,13 +221,13 @@ void remaining_moves(){
         giocatori[i].tot_mosse_rim = 0;
         
         mc_ped_squadra = (ped *) shmat(giocatori[i].mc_id_squadra, NULL, 0);
-        TEST_ERROR;
+        TEST_ERROR
 
         for(j = 0; j < SO_NUM_P; j++)
             giocatori[i].tot_mosse_rim += mc_ped_squadra[j].mosse_rim;
 
         shmdt(mc_ped_squadra);
-        TEST_ERROR;
+        TEST_ERROR
     }
 }
 
@@ -259,9 +259,9 @@ void initGiocatori(char *mode) {
     for(i = 0; i < SO_NUM_G; i++) sem_arg.array[i] = i ? 0 : 1;
     
     token_gioc = semget(IPC_PRIVATE, SO_NUM_G, 0600);
-    TEST_ERROR;
+    TEST_ERROR
     semctl(token_gioc, 0, SETALL, sem_arg);
-    TEST_ERROR;
+    TEST_ERROR
 
     init_params_gamers(mode, param_giocatori, tmp_params);
     
@@ -293,7 +293,7 @@ void create_gamers(char ** param_giocatori, char tmp_params[][sizeof(char *)]){
 
         /* mc di squadra, array di pedine, visibile solo alla squadra */
         giocatori[i].mc_id_squadra = shmget(IPC_PRIVATE, sizeof(ped) * SO_NUM_P, S_IRUSR | S_IWUSR);
-        TEST_ERROR;
+        TEST_ERROR
 
         /* posizione token giocatore */
         sprintf(tmp_params[1], "%d", i);
@@ -304,19 +304,19 @@ void create_gamers(char ** param_giocatori, char tmp_params[][sizeof(char *)]){
         param_giocatori[5] = tmp_params[3];
 
         giocatori[i].pid = fork();
-        TEST_ERROR;
+        TEST_ERROR
 
         switch(giocatori[i].pid) {
             case -1:
-                TEST_ERROR;
+                TEST_ERROR
                 exit(EXIT_FAILURE);
             case 0:
                 execv("./bin/giocatore", param_giocatori);
-                TEST_ERROR;
+                TEST_ERROR
                 exit(EXIT_FAILURE);
             default:
                 setpgid(giocatori[i].pid, 0);
-                TEST_ERROR;
+                TEST_ERROR
                 break;
         }
     }
@@ -343,12 +343,14 @@ void gestRound() {
         for(i = 0; i < SO_NUM_G; i++)
             sem_arg.array[i] = 0;
 
-        stampaScacchiera();
+        // stampaScacchiera();
 
+        printf("-----------------------inizio nuovo round-----------------------\n");
+        
         alarm(SO_MAX_TIME);
         
         semctl(token_gioc, 0, SETALL, sem_arg);
-        TEST_ERROR;
+        TEST_ERROR
 
         wait_flag_taken(num_band);
         
@@ -356,11 +358,11 @@ void gestRound() {
             sem_arg.array[i] = 1;
 
         semctl(token_gioc, 0, SETALL, sem_arg);
-        TEST_ERROR;
+        TEST_ERROR
 
         alarm(0);
         
-        stampaScacchiera();
+        // stampaScacchiera();
 
         num_round++;
     } while(TRUE);
@@ -372,7 +374,7 @@ void wait_flag_taken(int num_band){
     int i;
     for(i = 0; i < num_band; i++) {
         msgrcv(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
-        TEST_ERROR;
+        TEST_ERROR
 
         if(!mc_bandiere[msg_presa.id_band].presa) {
             #if DEBUG
@@ -403,18 +405,18 @@ int initBandiere() {
     /* gestione cancellazione dopo primo round */
     if(num_round > 1) {
         shmdt(mc_bandiere);
-        TEST_ERROR;
+        TEST_ERROR
 
         shmctl(mc_id_band, IPC_RMID, NULL);
-        TEST_ERROR;
+        TEST_ERROR
     }
 
     mc_id_band = shmget(IPC_PRIVATE, num_band * sizeof(band), S_IRUSR | S_IWUSR);
-    TEST_ERROR;
+    TEST_ERROR
 
     /* creazione array bandiere in mc */
     mc_bandiere = (band *) shmat(mc_id_band, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     /* bandiere ancora non piazzate con coord -1, -1 */
     for(i = 0; i < num_band; i++) {
@@ -487,11 +489,11 @@ void send_msg_new_band(int i, int num_band, msg_band msg_new_band){
         /* printf("master: invio id mc band %d a giocatore %d\n", mc_id_band, (i + 1)); */
     #endif
 
-    msg_new_band.id_band = num_band;
-    msg_new_band.ind = mc_id_band;
+    msg_new_band.num_band = num_band;
+    msg_new_band.mc_id = mc_id_band;
     msg_new_band.mtype = (long) giocatori[i].pid + MSG_BANDIERA;
     msgsnd(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), 0);
-    TEST_ERROR;
+    TEST_ERROR
 }
 
 void rcv_msg_route_calculation(msg_conf msg_perc){
@@ -503,7 +505,7 @@ void rcv_msg_route_calculation(msg_conf msg_perc){
 
     /* una alla volta le squadre calcolano i percorsi delle pedine */
     msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_PERCORSO), 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     #if DEBUG
     printf("master: fine percorsi giocatore %d\n", (i + 1));
@@ -543,23 +545,20 @@ void signalHandler(int signal_number) {
             for(i = 0; i < SO_NUM_G; i++)
                 kill(-giocatori[i].pid, SIGUSR1);
 
-            printf("\nSTAMPOO SCACCHIERAAAAAA DIO CANEE!!\n");
+            // printf("\nSTAMPOO SCACCHIERAAAAAA DIO CANEE!!\n");
             stampaScacchiera();
-
-            for(i = 0; i < SO_NUM_G; i++)
-                kill(-giocatori[i].pid, SIGUSR2);
 
             while(TRUE) pause();
             break;
         
         case SIGCHLD:
-            while ((kidpid = waitpid(-1, &status, WNOHANG)) > 0) {
+            while((kidpid = waitpid(-1, &status, WNOHANG)) > 0) {
 				if (WEXITSTATUS(status) != 0) {
 					printf("OPS: kid %d is dead status %d\n", kidpid, WEXITSTATUS(status));
 				}
 			}
 
-			if (errno == ECHILD) {
+			if(errno == ECHILD) {
 				printf("\nIl gioco è finito!!!!!\n");
                 somebodyTookMaShmget();
                 signal(SIGALRM, SIG_DFL);

@@ -11,9 +11,12 @@ int mc_id_squadra /* id mc array pedine della squadra */
     , mc_id_bandiere /* id mc delle bandiere del round */
     , num_band_round /* numero delle bandiere di un singolo round */
     , pos_token /* numero del giocatore */
-    , token_gioc; /* id del semaforo usato per piazzare le pedine e per gestione del round */
+    , token_gioc /* id del semaforo usato per piazzare le pedine e per gestione del round */
+    , num_ped_assegnate /* numero di pedine assegnate del del round in corso */
+    , num_band_assegnate /* numero di bandiere assegnate del del round in corso */
+    , end_game; /* variabile per avviare gestione di fine gioco */
 pid_t *pids_pedine;
-int end_game;
+int *band_assegnate;
 
 /* 
 parametri a giocatore
@@ -36,11 +39,19 @@ int main(int argc, char **argv) {
     
     new_signal_handler.sa_handler = &signalHandler;
 	new_signal_handler.sa_flags = 0;
-	sigemptyset(& new_signal_handler.sa_mask);
+	sigemptyset(&new_signal_handler.sa_mask);
     
     sigaction(SIGCHLD, &new_signal_handler, 0);
 	TEST_ERROR
+
     sigaction(SIGUSR1, &new_signal_handler, 0);
+    TEST_ERROR
+
+    sigemptyset(&block_mask);
+    sigaddset(&block_mask, SIGUSR2);
+    new_signal_handler.sa_mask = block_mask;
+    new_signal_handler.sa_flags = SA_RESTART;
+    sigaction(SIGUSR2, &new_signal_handler, 0);
 	TEST_ERROR
     // sigaction(SIGSTOP, &new_signal_handler, 0);
 	// TEST_ERROR
@@ -56,10 +67,10 @@ int main(int argc, char **argv) {
 
     /* collegamento a mem cond */
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     /* creazione pedine, valorizzazione pids_pedine */
     initPedine(argv[1]);
@@ -187,7 +198,7 @@ void initPedine(char *mode) {
         if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
         	avviso_master.mtype = (long) getpid() + MSG_PIAZZAMENTO;
             msgsnd(msg_id_coda, &avviso_master, sizeof(msg_conf) - sizeof(long), 0);
-            TEST_ERROR;
+            TEST_ERROR
 
             #if DEBUG
             printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", (pos_token + 1), (long) getpid(), i, msg_id_coda);
@@ -197,7 +208,7 @@ void initPedine(char *mode) {
             sops.sem_op = 1;
             sops.sem_flg = 0;
             semop(token_gioc, &sops, 1);
-            TEST_ERROR;
+            TEST_ERROR
         }
 
         /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
@@ -209,11 +220,11 @@ void initPedine(char *mode) {
 
         switch(pids_pedine[i]) {
             case -1:
-                TEST_ERROR;
+                TEST_ERROR
                 exit(EXIT_FAILURE);
             case 0:
                 execv("./bin/pedina", param_pedine);
-                TEST_ERROR;
+                TEST_ERROR
                 exit(EXIT_FAILURE);
         }
     }
@@ -242,7 +253,7 @@ void piazzaPedina(int ind_pedine) {
     sops.sem_op = -1;
     sops.sem_flg = 0;
     semop(sem_id_scac, &sops, 1);
-    TEST_ERROR;
+    TEST_ERROR
 
     /* valorizzazione array ped in mc */
     mc_ped_squadra[ind_pedine].mosse_rim = SO_N_MOVES;
@@ -302,8 +313,13 @@ void gestRound() {
             msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
         } while(errno == EINTR);
 
-        mc_id_bandiere = msg_new_band.ind;
-        num_band_round = msg_new_band.id_band;
+        mc_id_bandiere = msg_new_band.mc_id;
+        num_band_round = msg_new_band.num_band;
+        
+        if(band_assegnate != NULL) free(band_assegnate);
+        band_assegnate = (int *) calloc(num_band_round, sizeof(int));
+        memset(band_assegnate, FALSE, num_band_round);
+        num_band_assegnate = 0;
 
         for(i = 0; i < SO_NUM_P; i++) {
             mc_ped_squadra[i].obiettivo.x = -1;
@@ -326,25 +342,32 @@ void initObiettivi() {
     msg_conf msg_perc, msg_obiettivo;
     int i;
 
+    num_ped_assegnate = 0;
+
     mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     #if DEBUG
     printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), mc_id_bandiere);
     #endif
 
     for(i = 0; i < num_band_round; i++)
-        scanBandiera(i);
+        /* se la bandiera non é ancora stata assegnata e presa allora avvio l'assegnazione */
+        if(!band_assegnate[i] && !mc_bandiere[i].presa) {
+            // printf("giocatore %d: inizio assegnazione bandiera %d\n", pos_token, i);
+            scanBandiera(i);
+            // printf("giocatore %d: fine assegnazione bandiera %d\n", pos_token, i);
+        }
 
     shmdt(mc_bandiere);
-    TEST_ERROR;
+    TEST_ERROR
 
     for(i = 0; i < SO_NUM_P; i++) {
         if(mc_ped_squadra[i].id_band != -1) {
             msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
 
             msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
-            TEST_ERROR;
+            TEST_ERROR
 
             /* 
             msg per assicurarsi che prima dell'inizio di 
@@ -352,7 +375,7 @@ void initObiettivi() {
             calcolino il proprio percorso
             */
             msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (pids_pedine[i] + MSG_PERCORSO), 0);
-            TEST_ERROR;
+            TEST_ERROR
         }
     }
 
@@ -408,7 +431,8 @@ void scanBandiera(int id_band) {
     bandiera oppure se nessuna delle pedine puó arrivarci
     */
     } while(!ped_sq && ped_cont);
-    //if(ped_cont == 0) kill(getppid(), SIGINT);
+    
+    if(ped_sq) num_band_assegnate++;
 }
 
 int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
@@ -430,11 +454,15 @@ int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
         cerco un'altra che possa prendere quella bandiera 
         (se disponibile)
         */
+        band_assegnate[mc_ped_squadra[ped_index].id_band] = FALSE;
         scanBandiera(mc_ped_squadra[ped_index].id_band);
     }
 
     mc_ped_squadra[ped_index].obiettivo = mc_bandiere[id_band].pos_band;
     mc_ped_squadra[ped_index].id_band = id_band;
+
+    num_ped_assegnate++;
+    band_assegnate[id_band] = TRUE;
 
     #if DEBUG
     printf("gioc %d: band %d assegnata a ped\n", pos_token, id_band);
@@ -444,7 +472,7 @@ int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
 }
 
 void signalHandler(int signal_number) {
-    int i, status, kidpid_ped;
+    int id_band, status, kidpid_ped;
     
     errno = 0;
 
@@ -455,22 +483,36 @@ void signalHandler(int signal_number) {
             while(TRUE) pause();
             break;
 
+        case SIGUSR2:
+            num_ped_assegnate--;
+
+            /* 
+            condizioni per if:
+            - tutte le pedine dovrebbero essere ferme
+            - non sono state assegnate ancora tutte le bandiere del round in corso
+            - il round é ancora in corso 
+            */
+            if(!num_ped_assegnate && num_band_assegnate < num_band_round && !semctl(token_gioc, pos_token, GETVAL, 0)) {
+                // printf("giocatore %d: inizio riassegnazione\n", pos_token);
+                initObiettivi();
+                // printf("giocatore %d: fine riassegnazione\n", pos_token);
+            }
+            break;
 
         case SIGCHLD:
-            while ((kidpid_ped = waitpid(-1, &status, WNOHANG)) > 0) {
+            while((kidpid_ped = waitpid(-1, &status, WNOHANG)) > 0) {
 				if (WEXITSTATUS(status) != 0) {
 					printf("OPS: kid %d is dead status %d\n", kidpid_ped, WEXITSTATUS(status));
 				}
 			}
 
-			if (errno == ECHILD) {
+			if(errno == ECHILD) {
 				printf("\npedine ammazzate tutte!!!!!\n");
                 shmdt(mc_char_scac);
                 shmdt(mc_ped_squadra);
                 exit(EXIT_SUCCESS);
 			}
             break;
-
     }
 
     //signal(SIGUSR2, SIG_DFL);

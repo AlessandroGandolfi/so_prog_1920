@@ -6,8 +6,8 @@ buildall: clock master giocatore pedina
 clean:
 	rm -f *o bin/master bin/giocatore bin/pedina *~
 	ipcrm -a
-	-pkill -f ./pedina
-	-pkill -f ./giocatore
+	-pkill -f ./bin/pedina
+	-pkill -f ./bin/giocatore
 
 master: src/master.c src/header.h Makefile
 	gcc $(cflags) src/master.c -o bin/master

@@ -33,10 +33,8 @@ int main(int argc, char **argv) {
 
     getConfig(argv[1]);
 
-    signal(SIGUSR2, &signalHandler);
-    TEST_ERROR;
     signal(SIGUSR1, &signalHandler);
-    TEST_ERROR;
+    TEST_ERROR
 
     mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
     mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
@@ -53,8 +51,10 @@ int waitObj() {
 
     /* ricezione messaggio con id di mc con bandiere */
     msgrcv(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBIETTIVO), 0);
-    TEST_ERROR;
+    TEST_ERROR
     
+    printf("giocatore %d ped %d: inizio\n", pos_token, id_ped_sq);
+
     #if DEBUG
     printf("ped %d: msg obiettivo %d ricevuto\n", (id_ped_sq + 1), mc_ped_squadra[id_ped_sq].id_band);
     #endif
@@ -113,7 +113,7 @@ int calcPercorso() {
     /* msg send fine calcolo percorso a giocatore prima di inizio round */
     msg_fine_perc.mtype = (long) (getpid() + MSG_PERCORSO);
     msgsnd(msg_id_coda, &msg_fine_perc, sizeof(msg_conf) - sizeof(long), 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     #if DEBUG
     /* printf("ped %d: msg fine calc percorso a gioc %d\n", (id_ped_sq + 1), pos_token); */
@@ -175,7 +175,7 @@ void aggiornaStato() {
     sops.sem_op = 1;
     sops.sem_flg = 0;
     semop(sem_id_scac, &sops, 1);
-    TEST_ERROR;
+    TEST_ERROR
     
     mc_ped_squadra[id_ped_sq].pos_attuale = percorso[ind_mossa];
     mc_ped_squadra[id_ped_sq].mosse_rim--;
@@ -234,7 +234,8 @@ void gestRound() {
     struct sembuf sops;
     msg_band_presa msg_presa;
 
-    end_game=TRUE;
+    end_game = TRUE;
+
     do {
         num_mosse = waitObj();
 
@@ -245,6 +246,7 @@ void gestRound() {
         semop(token_gioc, &sops, 1);
 
         if(muoviPedina(num_mosse)) {
+            printf("giocatore %d ped %d: band %d presa\n", pos_token, id_ped_sq, mc_ped_squadra[id_ped_sq].id_band);
             msg_presa.id_band = mc_ped_squadra[id_ped_sq].id_band;
             msg_presa.pos_token = pos_token;
             msg_presa.mtype = pid_master + (long) MSG_BANDIERA;
@@ -253,26 +255,27 @@ void gestRound() {
             
             /* msg a master per bandiera presa */
             msgsnd(msg_id_coda, &msg_presa, sizeof(msg_band_presa) - sizeof(long), 0);
-            TEST_ERROR;
+            TEST_ERROR
         }
-        
+
+        mc_ped_squadra[id_ped_sq].id_band = -1;
+
+        kill(getppid(), SIGUSR2);
+        TEST_ERROR
+
+        printf("giocatore %d ped %d: fine\n", pos_token, id_ped_sq);
     } while(end_game);
 }
 
 void signalHandler(int signal_number) {
     errno = 0;
 
-    switch(signal_number){
-        case SIGUSR1:
-            end_game = FALSE;
-            while(TRUE) pause();
-            break;
-        case SIGUSR2:
-            shmdt(mc_char_scac);
-            TEST_ERROR;
-            shmdt(mc_ped_squadra);
-            TEST_ERROR;
-            exit(EXIT_SUCCESS);
-    }
+    end_game = FALSE;
+    shmdt(mc_char_scac);
+    TEST_ERROR
+    shmdt(mc_ped_squadra);
+    TEST_ERROR
+    exit(EXIT_SUCCESS);
+    
     //signal(SIGUSR2, SIG_DFL);
 }

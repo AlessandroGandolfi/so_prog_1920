@@ -84,11 +84,14 @@ typedef struct _giocatore {
     int tot_mosse_rim;
 } gioc;
 
-/* messaggio usato per segnalare una bandierina presa e id mc bandiere */
+/* 
+messaggio usato per comunicare il nuovo id mc 
+bandiere e numero di bandiere del round 
+*/
 typedef struct _msg_bandiera {
     long mtype;
-    int ind;
-    int id_band;
+    int mc_id;
+    int num_band;
 } msg_band;
 
 /* messaggio usato per segnalare una bandiera presa */
