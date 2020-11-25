@@ -32,10 +32,10 @@ flag opzionali
 #define PRINT_SCAN 0
 #define ENABLE_COLORS 1
 
-#define MSG_OBIETTIVO 11111
-#define MSG_PERCORSO 22222
-#define MSG_BANDIERA 33333
-#define MSG_PIAZZAMENTO 44444
+#define MSG_OBJECTIVE 11111
+#define MSG_PATH 22222
+#define MSG_FLAG 33333
+#define MSG_PLACEMENT 44444
 
 #define INDEX(coord) (coord.y * SO_BASE) + coord.x
 
@@ -59,51 +59,54 @@ typedef union {
 } semun;
 #endif
 
-typedef struct _coordinate {
+typedef struct _coordinates {
     int x;
     int y;
 } coord;
 
-typedef struct _bandiera {
-    coord pos_band;
-    int punti;
-    int presa;
-} band;
+typedef struct _flag {
+    coord position;
+    int points;
+    int captured;
+} flag;
 
-typedef struct _pedina {
-    coord pos_attuale;
-    coord obiettivo;
-    int id_band;
-    int mosse_rim;
-} ped;
+typedef struct _pawn {
+    coord position;
+    coord objective;
+    int id_flag;
+    int remaining_moves;
+} pawn;
 
-typedef struct _giocatore {
+typedef struct _player {
     pid_t pid;
-    int punteggio;
-    int mc_id_squadra;
-    int tot_mosse_rim;
-} gioc;
+    int points;
+    int sm_id_team;
+    int total_rem_moves;
+} player;
 
-/* messaggio usato per segnalare una bandierina presa e id mc bandiere */
-typedef struct _msg_bandiera {
+/* 
+messaggio usato per segnalare nuova id mc bandiere 
+e nuovo numero bandiere del prossimo round
+*/
+typedef struct _msg_flag {
     long mtype;
-    int ind;
-    int id_band;
-} msg_band;
+    int sm_id_flags;
+    int num_flags;
+} msg_flag;
 
 /* messaggio usato per segnalare una bandiera presa */
-typedef struct _msg_bandiera_presa {
+typedef struct _msg_captured_flag {
     long mtype;
-    int id_band;
+    int id_flag;
     int pos_token;
-} msg_band_presa;
+} msg_c_flag;
 
 /* 
 messaggio di conferma generale usato per
     fine piazzamento pedine da giocatore a master
     fine calcolo percorso da pedine a giocatore
 */
-typedef struct _msg_conferma {
+typedef struct _msg_confirmation {
     long mtype;
 } msg_conf;
 
@@ -122,18 +125,20 @@ int DIST_BAND;
 
 
 /* calcolo distanza tra due coordinate con distanza di manhattan */
-int calcDist(coord, coord);
+int calc_dist(coord, coord);
 
 /* valorizzazione globali da file secondo modalitá
 param: 
 - modalitá selezionata */
-void getConfig(char *);
+void get_config(char *);
 
 
-void signalHandler(int);
-void gestRound();
+void signal_handler(int);
+void play_round();
 
 #if DEBUG
-void testSemToken();
-void testConfig();
+/* stampa dei valori del semaforo token */
+void test_sem_token();
+/* stampa valori configurazione selezionata */
+void test_config();
 #endif

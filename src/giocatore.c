@@ -1,18 +1,18 @@
 #include "giocatore.h"
 
 /* globali */
-ped *mc_ped_squadra;
-char *mc_char_scac;
-band *mc_bandiere;
-int mc_id_squadra /* id mc array pedine della squadra */
-    , msg_id_coda /* id della coda di messaggi */
-    , mc_id_scac /* id mc dell'array di caratteri della scacchiera */
-    , sem_id_scac /* id set di semafori per l'array della scacchiera */
-    , mc_id_bandiere /* id mc delle bandiere del round */
-    , num_band_round /* numero delle bandiere di un singolo round */
+pawn *sm_pawns_team;
+char *sm_char_cb;
+flag *sm_flags;
+int sm_id_team /* id mc array pedine della squadra */
+    , msg_id_queue /* id della coda di messaggi */
+    , sm_id_cb /* id mc dell'array di caratteri della scacchiera */
+    , sem_id_cb /* id set di semafori per l'array della scacchiera */
+    , sm_id_flags /* id mc delle bandiere del round */
+    , num_flags_round /* numero delle bandiere di un singolo round */
     , pos_token /* numero del giocatore */
-    , token_gioc; /* id del semaforo usato per piazzare le pedine e per gestione del round */
-pid_t *pids_pedine;
+    , token_players; /* id del semaforo usato per piazzare le pedine e per gestione del round */
+pid_t *pids_pawns;
 int end_game;
 
 /* 
@@ -30,11 +30,11 @@ int main(int argc, char **argv) {
     struct sigaction new_signal_handler;
     sigset_t block_mask;
 
-    getConfig(argv[1]);
+    get_config(argv[1]);
 
     srand(time(NULL) + getpid());
     
-    new_signal_handler.sa_handler = &signalHandler;
+    new_signal_handler.sa_handler = &signal_handler;
 	new_signal_handler.sa_flags = 0;
 	sigemptyset(& new_signal_handler.sa_mask);
     
@@ -47,34 +47,29 @@ int main(int argc, char **argv) {
     // sigaction(SIGCONT, &new_signal_handler, 0);
 	// TEST_ERROR
 
-    token_gioc = atoi(argv[2]);
+    token_players = atoi(argv[2]);
     pos_token = atoi(argv[3]);
-    sem_id_scac = atoi(argv[4]);
-    mc_id_squadra = atoi(argv[5]);
-    msg_id_coda = atoi(argv[6]);
-    mc_id_scac = atoi(argv[7]);
+    sem_id_cb = atoi(argv[4]);
+    sm_id_team = atoi(argv[5]);
+    msg_id_queue = atoi(argv[6]);
+    sm_id_cb = atoi(argv[7]);
 
     /* collegamento a mem cond */
-    mc_ped_squadra = (ped *) shmat(mc_id_squadra, NULL, 0);
+    sm_pawns_team = (pawn *) shmat(sm_id_team, NULL, 0);
     TEST_ERROR;
 
-    mc_char_scac = (char *) shmat(mc_id_scac, NULL, 0);
+    sm_char_cb = (char *) shmat(sm_id_cb, NULL, 0);
     TEST_ERROR;
 
-    /* creazione pedine, valorizzazione pids_pedine */
-    initPedine(argv[1]);
+    /* creazione pedine, valorizzazione pids_pawns */
+    init_pawns(argv[1]);
 
-    gestRound();
+    play_round();
 
     return 0;
 }
 
-/* 
-valorizzazione globali da file secondo modalitá
-param: 
-- modalitá selezionata
-*/
-void getConfig(char *mode) {
+void get_config(char *mode) {
     FILE *fs;
     char *config_file;
 
@@ -111,21 +106,14 @@ void getConfig(char *mode) {
     fclose(fs);
 }
 
-/*
-creazione e posizionamento pedine, sincronizzazione con token
-param:
-- id token sem
-- posizione token squadra
-- modalitá selezionata
-*/
-void initPedine(char *mode) {
+void init_pawns(char *mode) {
     int i;
-    char *param_pedine[11];
+    char *param_pawns[11];
     char tmp_params[8][sizeof(char *)];
     struct sembuf sops;
-    msg_conf avviso_master;
+    msg_conf warning_master;
 
-    pids_pedine = (pid_t *) calloc(SO_NUM_P, sizeof(pid_t));
+    pids_pawns = (pid_t *) calloc(SO_NUM_P, sizeof(pid_t));
 
     /* 
     parametri a pedine
@@ -140,31 +128,31 @@ void initPedine(char *mode) {
     8 - pid master
     9 - id mem cond scacchiera caratteri
     */
-    param_pedine[0] = "./bin/pedina";
-    param_pedine[1] = mode;
-    sprintf(tmp_params[0], "%d", token_gioc);
-    param_pedine[2] = tmp_params[0];
+    param_pawns[0] = "./bin/pedina";
+    param_pawns[1] = mode;
+    sprintf(tmp_params[0], "%d", token_players);
+    param_pawns[2] = tmp_params[0];
     sprintf(tmp_params[1], "%d", pos_token);
-    param_pedine[3] = tmp_params[1];
-    sprintf(tmp_params[2], "%d", sem_id_scac);
-    param_pedine[4] = tmp_params[2];
-    sprintf(tmp_params[3], "%d", mc_id_squadra);
-    param_pedine[5] = tmp_params[3];
-    sprintf(tmp_params[5], "%d", msg_id_coda);
-    param_pedine[7] = tmp_params[5];
+    param_pawns[3] = tmp_params[1];
+    sprintf(tmp_params[2], "%d", sem_id_cb);
+    param_pawns[4] = tmp_params[2];
+    sprintf(tmp_params[3], "%d", sm_id_team);
+    param_pawns[5] = tmp_params[3];
+    sprintf(tmp_params[5], "%d", msg_id_queue);
+    param_pawns[7] = tmp_params[5];
     sprintf(tmp_params[6], "%ld", (long) getppid());
-    param_pedine[8] = tmp_params[6];
-    sprintf(tmp_params[7], "%d", mc_id_scac);
-    param_pedine[9] = tmp_params[7];
-    param_pedine[10] = NULL;
+    param_pawns[8] = tmp_params[6];
+    sprintf(tmp_params[7], "%d", sm_id_cb);
+    param_pawns[9] = tmp_params[7];
+    param_pawns[10] = NULL;
     
     /* pedine ancora non piazzate con coord -1, -1 */
     for(i = 0; i < SO_NUM_P; i++) {
-        mc_ped_squadra[i].pos_attuale.x = -1; 
-        mc_ped_squadra[i].pos_attuale.y = -1;
-        mc_ped_squadra[i].obiettivo.x = -1;
-        mc_ped_squadra[i].obiettivo.y = -1;
-        mc_ped_squadra[i].id_band = -1;
+        sm_pawns_team[i].position.x = -1; 
+        sm_pawns_team[i].position.y = -1;
+        sm_pawns_team[i].objective.x = -1;
+        sm_pawns_team[i].objective.y = -1;
+        sm_pawns_team[i].id_flag = -1;
     }
 
     for(i = 0; i < SO_NUM_P; i++) {
@@ -172,61 +160,55 @@ void initPedine(char *mode) {
         sops.sem_num = pos_token;
         sops.sem_op = -1;
         sops.sem_flg = 0;
-        semop(token_gioc, &sops, 1);
+        semop(token_players, &sops, 1);
 
         #if DEBUG
         /* printf("gioc %d: ped %d piazzata\n", pos_token, i); */
         #endif
 
-        piazzaPedina(i);
+        place_pawn(i);
         
         /* 
         ultimo giocatore che piazza una pedina manda un messaggio al master
         che piazzerá a sua volta le bandierine, non rilascia primo token
         */
         if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
-        	avviso_master.mtype = (long) getpid() + MSG_PIAZZAMENTO;
-            msgsnd(msg_id_coda, &avviso_master, sizeof(msg_conf) - sizeof(long), 0);
+        	warning_master.mtype = (long) getpid() + MSG_PLACEMENT;
+            msgsnd(msg_id_queue, &warning_master, sizeof(msg_conf) - sizeof(long), 0);
             TEST_ERROR;
 
             #if DEBUG
-            printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", (pos_token + 1), (long) getpid(), i, msg_id_coda);
+            printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", (pos_token + 1), (long) getpid(), i, msg_id_queue);
             #endif
         } else {
             sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
             sops.sem_op = 1;
             sops.sem_flg = 0;
-            semop(token_gioc, &sops, 1);
+            semop(token_players, &sops, 1);
             TEST_ERROR;
         }
 
         /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
         sprintf(tmp_params[4], "%d", i);
-        param_pedine[6] = tmp_params[4];
+        param_pawns[6] = tmp_params[4];
 
         /* creazione proc pedine */
-        pids_pedine[i] = fork();
+        pids_pawns[i] = fork();
 
-        switch(pids_pedine[i]) {
+        switch(pids_pawns[i]) {
             case -1:
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
             case 0:
-                execv("./bin/pedina", param_pedine);
+                execv("./bin/pedina", param_pawns);
                 TEST_ERROR;
                 exit(EXIT_FAILURE);
         }
     }
 }
 
-/*
-piazzamento nuove bandiere e distribuzione loro punteggio
-param:
-- numero identificativo pedina di array
-- posizione id token giocatori/squadra
-*/
-void piazzaPedina(int ind_pedine) {
-    coord casella;
+void place_pawn(int id_pawn) {
+    coord box;
     struct sembuf sops;
     
     /* 
@@ -234,62 +216,55 @@ void piazzaPedina(int ind_pedine) {
     una cella libera senza altre pedine "troppo vicine" 
     */
     do {
-        casella.y = rand() % SO_ALTEZZA;
-        casella.x = rand() % SO_BASE;
-    } while(!checkPosPedine(casella, ind_pedine));
+        box.y = rand() % SO_ALTEZZA;
+        box.x = rand() % SO_BASE;
+    } while(!check_pos_pawns(box, id_pawn));
 
-    sops.sem_num = INDEX(casella);
+    sops.sem_num = INDEX(box);
     sops.sem_op = -1;
     sops.sem_flg = 0;
-    semop(sem_id_scac, &sops, 1);
+    semop(sem_id_cb, &sops, 1);
     TEST_ERROR;
 
     /* valorizzazione array ped in mc */
-    mc_ped_squadra[ind_pedine].mosse_rim = SO_N_MOVES;
-    mc_ped_squadra[ind_pedine].pos_attuale = casella;
+    sm_pawns_team[id_pawn].remaining_moves = SO_N_MOVES;
+    sm_pawns_team[id_pawn].position = box;
 
     /* piazzamento pedine su char scacchiera */
-    mc_char_scac[INDEX(casella)] = (pos_token + 1) + '0';
+    sm_char_cb[INDEX(box)] = (pos_token + 1) + '0';
 }
 
-/*
-controlli per piazzamento nuova pedina su posizione delle 
-pedine giá piazzate e su cella libera
-TRUE se supera controlli, FALSE altrimenti
-param:
-- coordinate generate
-*/
-int checkPosPedine(coord casella, int num_ped_piazzate) {
+int check_pos_pawns(coord box, int num_pawns_placed) {
     int i;
 
     /* 
     per la prima controllo solo che non la casella 
     non sia occupata da una pedina nemica 
     */
-    if(num_ped_piazzate == 0 && mc_char_scac[INDEX(casella)] != '0') return FALSE;
+    if(num_pawns_placed == 0 && sm_char_cb[INDEX(box)] != '0') return FALSE;
 
     /* 
     dalla seconda in poi controllo che ogni pedina sia "abbastanza lontana"
     dalle altre e che la casella non sia giá occupata
     */
-    for(i = 0; i <= num_ped_piazzate; i++)
-        if(mc_char_scac[INDEX(casella)] != '0'
-            || calcDist(casella, mc_ped_squadra[i].pos_attuale) < DIST_PED) 
+    for(i = 0; i <= num_pawns_placed; i++)
+        if(sm_char_cb[INDEX(box)] != '0'
+            || calc_dist(box, sm_pawns_team[i].position) < DIST_PED) 
             return FALSE;
 
     return TRUE;
 }
 
 
-int calcDist(coord cas1, coord cas2) {
+int calc_dist(coord cas1, coord cas2) {
     return abs(cas1.x - cas2.x) + abs(cas1.y - cas2.y);
 }
 
-void gestRound() {
-    msg_band msg_new_band;
+void play_round() {
+    msg_flag msg_new_band;
     int i;
 
-    end_game = TRUE;
+    end_game = FALSE;
 
     do {
         #if DEBUG
@@ -299,51 +274,50 @@ void gestRound() {
         /* ricezione messaggio con id di mc con bandiere */
         do {
             errno = 0;
-            msgrcv(msg_id_coda, &msg_new_band, sizeof(msg_band) - sizeof(long), (long) (getpid() + MSG_BANDIERA), 0);
+            msgrcv(msg_id_queue, &msg_new_band, sizeof(msg_flag) - sizeof(long), (long) (getpid() + MSG_FLAG), 0);
         } while(errno == EINTR);
 
-        mc_id_bandiere = msg_new_band.ind;
-        num_band_round = msg_new_band.id_band;
+        sm_id_flags = msg_new_band.sm_id_flags;
+        num_flags_round = msg_new_band.num_flags;
 
         for(i = 0; i < SO_NUM_P; i++) {
-            mc_ped_squadra[i].obiettivo.x = -1;
-            mc_ped_squadra[i].obiettivo.y = -1;
-            mc_ped_squadra[i].id_band = -1;
+            sm_pawns_team[i].objective.x = -1;
+            sm_pawns_team[i].objective.y = -1;
+            sm_pawns_team[i].id_flag = -1;
         }
 
         #if DEBUG
-        printf("gioc %d: messaggio fine band ricevuto %d\n", (pos_token + 1), mc_id_bandiere);
+        printf("gioc %d: messaggio fine band ricevuto %d\n", (pos_token + 1), sm_id_flags);
         #endif
 
         /* assegnazione obiettivi */
-        initObiettivi();
+        init_objectives();
 
-    } while(end_game);
+    } while(!end_game);
 }
 
-/* utilizzata solo per assegnazione degli obiettivi prima dell'inizio del round */
-void initObiettivi() {
-    msg_conf msg_perc, msg_obiettivo;
+void init_objectives() {
+    msg_conf msg_path, msg_objective;
     int i;
 
-    mc_bandiere = (band *) shmat(mc_id_bandiere, NULL, 0);
+    sm_flags = (flag *) shmat(sm_id_flags, NULL, 0);
     TEST_ERROR;
 
     #if DEBUG
-    printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), mc_id_bandiere);
+    printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), sm_id_flags);
     #endif
 
-    for(i = 0; i < num_band_round; i++)
-        scanBandiera(i);
+    for(i = 0; i < num_flags_round; i++)
+        scan_flag(i);
 
-    shmdt(mc_bandiere);
+    shmdt(sm_flags);
     TEST_ERROR;
 
     for(i = 0; i < SO_NUM_P; i++) {
-        if(mc_ped_squadra[i].id_band != -1) {
-            msg_obiettivo.mtype = (long) (pids_pedine[i] + MSG_OBIETTIVO);
+        if(sm_pawns_team[i].id_flag != -1) {
+            msg_objective.mtype = (long) (pids_pawns[i] + MSG_OBJECTIVE);
 
-            msgsnd(msg_id_coda, &msg_obiettivo, sizeof(msg_conf) - sizeof(long), 0);
+            msgsnd(msg_id_queue, &msg_objective, sizeof(msg_conf) - sizeof(long), 0);
             TEST_ERROR;
 
             /* 
@@ -351,53 +325,53 @@ void initObiettivi() {
             un round tutte le pedine con un obiettivo
             calcolino il proprio percorso
             */
-            msgrcv(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), (long) (pids_pedine[i] + MSG_PERCORSO), 0);
+            msgrcv(msg_id_queue, &msg_path, sizeof(msg_conf) - sizeof(long), (long) (pids_pawns[i] + MSG_PATH), 0);
             TEST_ERROR;
         }
     }
 
     /* msg a master fine calcolo percorsi per inizio round */
-    msg_perc.mtype = (long) getppid() + MSG_PERCORSO;
-    msgsnd(msg_id_coda, &msg_perc, sizeof(msg_conf) - sizeof(long), 0);
+    msg_path.mtype = (long) getppid() + MSG_PATH;
+    msgsnd(msg_id_queue, &msg_path, sizeof(msg_conf) - sizeof(long), 0);
 
     #if DEBUG
     printf("gioc %d: invio msg a master inizio round\n", (pos_token + 1));
     #endif
 }
 
-void scanBandiera(int id_band) {
-    int riga, range_scan, ped_sq, ped_cont;
+void scan_flag(int id_flag) {
+    int row, range_scan, team_pawn, pawns_count;
     coord check;
 
-    ped_sq = FALSE;
-    ped_cont = SO_NUM_P;
+    team_pawn = FALSE;
+    pawns_count = SO_NUM_P;
     range_scan = 0;
 
     do {
         range_scan++;
         /* scan riga da -range a +range */
-        for(riga = -range_scan; riga <= range_scan; riga++) {
-            check.y = mc_bandiere[id_band].pos_band.y;
-            check.y += riga;
+        for(row = -range_scan; row <= range_scan; row++) {
+            check.y = sm_flags[id_flag].position.y;
+            check.y += row;
             if(check.y >= 0 && check.y < SO_ALTEZZA) {
                 /* scan da sx a centro */
-                check.x = mc_bandiere[id_band].pos_band.x;
-                check.x -= (range_scan - abs(riga));
-                if(check.x >= 0 && mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
-                    ped_cont--;
-                    ped_sq = assegnaObiettivo(check
-                                            , id_band
+                check.x = sm_flags[id_flag].position.x;
+                check.x -= (range_scan - abs(row));
+                if(check.x >= 0 && sm_char_cb[INDEX(check)] == ((pos_token + 1) + '0')) {
+                    pawns_count--;
+                    team_pawn = assign_objective(check
+                                            , id_flag
                                             , range_scan);
                 }
 
                 /* da dopo centro a dx */
-                check.x += 2 * (range_scan - abs(riga));
+                check.x += 2 * (range_scan - abs(row));
                 if(check.x < SO_BASE 
-                    && (range_scan - abs(riga)) > 0 
-                    && mc_char_scac[INDEX(check)] == ((pos_token + 1) + '0')) {
-                    ped_cont--;
-                    ped_sq = assegnaObiettivo(check
-                                            , id_band
+                    && (range_scan - abs(row)) > 0 
+                    && sm_char_cb[INDEX(check)] == ((pos_token + 1) + '0')) {
+                    pawns_count--;
+                    team_pawn = assign_objective(check
+                                            , id_flag
                                             , range_scan);
                 }
             }
@@ -407,22 +381,22 @@ void scanBandiera(int id_band) {
     esco dal ciclo se una pedina é stata assegnata alla 
     bandiera oppure se nessuna delle pedine puó arrivarci
     */
-    } while(!ped_sq && ped_cont);
-    //if(ped_cont == 0) kill(getppid(), SIGINT);
+    } while(!team_pawn && pawns_count);
+    //if(pawns_count == 0) kill(getppid(), SIGINT);
 }
 
-int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
-    int ped_index;
+int assign_objective(coord check, int id_flag, int required_moves) {
+    int id_pawn;
 
-    ped_index = 0;
+    id_pawn = 0;
 
-    while(calcDist(mc_ped_squadra[ped_index].pos_attuale, check)) ped_index++;
+    while(calc_dist(sm_pawns_team[id_pawn].position, check)) id_pawn++;
     
-    if(mc_ped_squadra[ped_index].mosse_rim < mosse_richieste) /* se la pedina non ha abbastanza mosse */
+    if(sm_pawns_team[id_pawn].remaining_moves < required_moves) /* se la pedina non ha abbastanza mosse */
         return FALSE;
 
-    if(mc_ped_squadra[ped_index].id_band != -1) { /* se la pedina ha giá un obiettivo assegnato */
-        if(mc_bandiere[id_band].punti <= mc_bandiere[mc_ped_squadra[ped_index].id_band].punti) /* se la bandiera giá assegnata vale di piú di quella nuova */
+    if(sm_pawns_team[id_pawn].id_flag != -1) { /* se la pedina ha giá un obiettivo assegnato */
+        if(sm_flags[id_flag].points <= sm_flags[sm_pawns_team[id_pawn].id_flag].points) /* se la bandiera giá assegnata vale di piú di quella nuova */
             return FALSE; /* non assegno pedina */
 
         /* 
@@ -430,47 +404,44 @@ int assegnaObiettivo(coord check, int id_band, int mosse_richieste) {
         cerco un'altra che possa prendere quella bandiera 
         (se disponibile)
         */
-        scanBandiera(mc_ped_squadra[ped_index].id_band);
+        scan_flag(sm_pawns_team[id_pawn].id_flag);
     }
 
-    mc_ped_squadra[ped_index].obiettivo = mc_bandiere[id_band].pos_band;
-    mc_ped_squadra[ped_index].id_band = id_band;
+    sm_pawns_team[id_pawn].objective = sm_flags[id_flag].position;
+    sm_pawns_team[id_pawn].id_flag = id_flag;
 
     #if DEBUG
-    printf("gioc %d: band %d assegnata a ped\n", pos_token, id_band);
+    printf("gioc %d: band %d assegnata a ped\n", pos_token, id_flag);
     #endif
 
     return TRUE;
 }
 
-void signalHandler(int signal_number) {
+void signal_handler(int signal_number) {
     int i, status, kidpid_ped;
     
     errno = 0;
 
     switch(signal_number){
-
         case SIGUSR1:
-            end_game = FALSE;
+            end_game = TRUE;
             while(TRUE) pause();
             break;
 
-
         case SIGCHLD:
-            while ((kidpid_ped = waitpid(-1, &status, WNOHANG)) > 0) {
+            while((kidpid_ped = waitpid(-1, &status, WNOHANG)) > 0) {
 				if (WEXITSTATUS(status) != 0) {
 					printf("OPS: kid %d is dead status %d\n", kidpid_ped, WEXITSTATUS(status));
 				}
 			}
 
-			if (errno == ECHILD) {
+			if(errno == ECHILD) {
 				printf("\npedine ammazzate tutte!!!!!\n");
-                shmdt(mc_char_scac);
-                shmdt(mc_ped_squadra);
+                shmdt(sm_char_cb);
+                shmdt(sm_pawns_team);
                 exit(EXIT_SUCCESS);
 			}
             break;
-
     }
 
     //signal(SIGUSR2, SIG_DFL);
@@ -478,15 +449,15 @@ void signalHandler(int signal_number) {
     /* attesa terminazione di tutte le pedine */
     // while(wait(&status) > 0);
 
-    // shmdt(mc_char_scac);
+    // shmdt(sm_char_cb);
 
-    // shmdt(mc_ped_squadra);
+    // shmdt(sm_pawns_team);
 
     // exit(EXIT_SUCCESS);
 }
 
 #if DEBUG
-void testConfig() {
+void test_config() {
     if(SO_NUM_G)
         printf("gioc: valori configurazione correttamente estratti\n");
     else {

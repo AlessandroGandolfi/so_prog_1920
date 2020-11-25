@@ -10,24 +10,24 @@
 param: 
 - numero parametri passati a lancio esecuzione
 - modalitá selezionata (def a "" in makefile) */
-void checkMode(int, char *);
+void check_mode(int, char *);
 
 /* init risorse globali (memorie condivise, coda msg, semafori, ...) */
-void initRisorse();
+void init_resources();
 
 /* creazione ed esecuzione giocatori, creazione e valorizzazione token.
 param:
 - modalitá selezionata */
-void initGiocatori(char *);
+void init_players(char *);
 
 /* init array semafori scacchiera, tutti a 1 */
-void initSemScacchiera();
+void init_sem_chessboard();
 
 /* eliminazione risorse (memorie condivise, coda msg, semafori, ...) */
-void somebodyTookMaShmget();
+void delete_resources();
 
 /* stampa scacchiera */
-void stampaScacchiera();
+void print_chessboard();
 
 /* calcola mosse rimanenti per squadra */
 void remaining_moves();
@@ -44,10 +44,10 @@ void print_info_round();
     5 - id mc squadra, array pedine
     6 - id coda msg
     7 - id mc char scacchiera */
-void init_params_gamers(char*, char**, char [][sizeof(char *)]);
+void init_params_players(char*, char**, char [][sizeof(char *)]);
 
 /* creazione dei processi giocatori */
-void create_gamers(char**, char [][sizeof(char *)]);
+void create_players(char**, char [][sizeof(char *)]);
 
 /* aspetta il messaggio di bandiera presa */
 void wait_flag_taken(int);
@@ -55,17 +55,17 @@ void wait_flag_taken(int);
 /* piazzamento nuove bandiere e distribuzione loro punteggio.
     param:
     - id token giocatori (usato successivamente per partenza round) */
-int initBandiere();
+int init_flags();
 
 /* valorizzazione mc bandiere, assegnazione punti bandiere e 
     piazzamento su scacchiera */
-void value_and_place_flag(int, int, int, coord);
+void set_flags_pos_points(int, int, int, coord);
 
 /* invia messaggio a giocatori per piazzamento bandierina */
-void send_msg_new_band(int, int, msg_band);
+void send_msg_new_band(int, int, msg_flag);
 
 /* in ricezione di messaggio di fine calcolo percorso pedina*/
-void rcv_msg_route_calculation(msg_conf);
+void rcv_msg_path_calculation(msg_conf);
 
 /* controlli per piazzamento nuova bandierina su posizione delle 
     bandierine giá piazzate e su cella libera da pedine
@@ -73,4 +73,4 @@ void rcv_msg_route_calculation(msg_conf);
     param:
     - coordinate generate
     - numero di bandierine da piazzare questo round */
-int checkPosBandiere(coord, int);
+int check_flags_pos(coord, int);

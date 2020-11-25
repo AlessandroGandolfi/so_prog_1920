@@ -1,6 +1,6 @@
 #include "header.h"
 
-int waitObj();
-int calcPercorso();
-int muoviPedina(int);
-void aggiornaStato();
+int wait_obj();
+int calc_path();
+int move_pawn(int);
+void update_status();
