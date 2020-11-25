@@ -11,6 +11,7 @@ int sm_id_cb
     , token_players
     , num_round
     , end_game;
+time_t start_time, end_time;
 
 int main(int argc, char **argv) {
     msg_conf msg_pawn;
@@ -22,8 +23,8 @@ int main(int argc, char **argv) {
     #endif
 
     /* time torna int secondi da mezzanotte primo gennaio 1970 */
-    srand(time(NULL) + getpid());
-
+    start_time = time(NULL);
+    srand(start_time + getpid());
 
     signal(SIGINT, &signal_handler);
     TEST_ERROR;
@@ -237,7 +238,9 @@ void remaining_moves(){
 
 void print_info_round(){
     struct timespec arg_sleep;
-    int i;
+    int i, total_points;
+    float used_moves;
+
     printf("Risultati round #%d:\n", num_round);
 
     for(i = 0; i < SO_NUM_G; i++) 
@@ -248,7 +251,21 @@ void print_info_round(){
     nanosleep(&arg_sleep, NULL);
 
     if(end_game) {
-        // TODO metriche
+        total_points = 0;
+        used_moves = 0.0;
+
+        printf("\n------------------- Statistiche di fine gioco -------------------\n");
+
+        for(i = 0; i < SO_NUM_G; i++) {
+            total_points += players[i].points;
+            used_moves = (SO_NUM_P * SO_N_MOVES) - players[i].total_rem_moves;
+            printf("Rapporti giocatore %d:\n", i + 1);
+            printf("Mosse utilizzate/mosse totali: %.2f\n", used_moves / (SO_NUM_P * SO_N_MOVES));
+            printf("Punti ottenuti/mosse utilizzate: %.2f\n\n", players[i].points / used_moves);
+        }
+
+        printf("Il gioco é durato %d minuti e %d secondi\n", (int) (end_time - start_time) / 60, (int) (end_time - start_time) % 60);
+        printf("Rapporto punti totali/tempo di gioco: %.2f\n", (float) total_points / (end_time - start_time));
     }
 }
 
@@ -342,7 +359,6 @@ void play_round() {
     num_round = 1;
     end_game = FALSE;
 
-    /* TODO controllare che ci siano tutte le periferiche*/
     do {
         /* creazione bandiere, valorizzazione array bandiere */
         num_band = init_flags();
@@ -546,6 +562,7 @@ void signal_handler(int signal_number) {
         case SIGINT:
 
             end_game = TRUE;
+            end_time = time(NULL);
 
             for(i = 0; i < SO_NUM_G; i++)
                 kill(-players[i].pid, SIGUSR1);
