@@ -1,7 +1,7 @@
-# cflags = -std=c89 -pedantic
+cflags = -std=c89 -pedantic
 mode ?= ""
 
-buildall: clock master giocatore pedina
+buildall: master giocatore pedina
 
 clean:
 	rm -f *o bin/master bin/giocatore bin/pedina *~
@@ -18,8 +18,8 @@ giocatore: src/giocatore.c src/header.h Makefile
 pedina: src/pedina.c src/header.h Makefile
 	gcc $(cflags) src/pedina.c -o bin/pedina
 
-clock:
-	touch src/*.c src/*.h
+#clock:
+#	touch src/*.c src/*.h
 
 all: buildall run
 

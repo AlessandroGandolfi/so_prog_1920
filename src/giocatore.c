@@ -42,10 +42,6 @@ int main(int argc, char **argv) {
 	TEST_ERROR
     sigaction(SIGUSR1, &new_signal_handler, 0);
 	TEST_ERROR
-    // sigaction(SIGSTOP, &new_signal_handler, 0);
-	// TEST_ERROR
-    // sigaction(SIGCONT, &new_signal_handler, 0);
-	// TEST_ERROR
 
     token_players = atoi(argv[2]);
     pos_token = atoi(argv[3]);
@@ -56,10 +52,10 @@ int main(int argc, char **argv) {
 
     /* collegamento a mem cond */
     sm_pawns_team = (pawn *) shmat(sm_id_team, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     sm_char_cb = (char *) shmat(sm_id_cb, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     /* creazione pedine, valorizzazione pids_pawns */
     init_pawns(argv[1]);
@@ -96,13 +92,13 @@ void get_config(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
         fscanf(fs, "%d%*[^\n]", &DIST_PED);
-        /* TODO CONTROLLARE */
         fscanf(fs, "%d%*[0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
     }
 
+    free(config_file);
     fclose(fs);
 }
 
@@ -110,24 +106,84 @@ void init_pawns(char *mode) {
     int i;
     char *param_pawns[11];
     char tmp_params[8][sizeof(char *)];
-    struct sembuf sops;
-    msg_conf warning_master;
 
     pids_pawns = (pid_t *) calloc(SO_NUM_P, sizeof(pid_t));
 
+    init_params_pawns(mode, param_pawns, tmp_params);
+    
+    /* pedine ancora non piazzate con coord -1, -1 */
+    for(i = 0; i < SO_NUM_P; i++) {
+        sm_pawns_team[i].position.x = -1; 
+        sm_pawns_team[i].position.y = -1;
+        sm_pawns_team[i].objective.x = -1;
+        sm_pawns_team[i].objective.y = -1;
+        sm_pawns_team[i].id_flag = -1;
+    }
+
+    for(i = 0; i < SO_NUM_P; i++) {
+        placement_turn(i);
+        
+        /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
+        sprintf(tmp_params[4], "%d", i);
+        param_pawns[6] = tmp_params[4];
+
+        /* creazione proc pedine */
+        pids_pawns[i] = fork();
+
+        switch(pids_pawns[i]) {
+            case -1:
+                TEST_ERROR
+                exit(EXIT_FAILURE);
+            case 0:
+                execv("./bin/pedina", param_pawns);
+                TEST_ERROR
+                exit(EXIT_FAILURE);
+        }
+    }
+}
+
+void placement_turn(int id_pawn) {
+    struct sembuf sops;
+    msg_conf warning_master;
+
+    /* token per piazzamento pedine */
+    sops.sem_num = pos_token;
+    sops.sem_op = -1;
+    sops.sem_flg = 0;
+    semop(token_players, &sops, 1);
+
+    #if DEBUG
+    /* printf("gioc %d: ped %d piazzata\n", pos_token, id_pawn); */
+    #endif
+
+    place_pawn(id_pawn);
+    
     /* 
-    parametri a pedine
-    0 - path relativo file pedina
-    1 - difficoltá gioco (per config)
-    2 - id token
-    3 - indice token squadra
-    4 - id mc scacchiera, array id set semafori
-    5 - id mc squadra, array pedine
-    6 - indice identificativo pedina dell'array in mc squadra
-    7 - id coda msg
-    8 - pid master
-    9 - id mem cond scacchiera caratteri
+    ultimo giocatore che piazza una pedina manda un messaggio al master
+    che piazzerá a sua volta le bandierine, non rilascia primo token
     */
+    if(id_pawn == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
+        warning_master.mtype = (long) getpid() + MSG_PLACEMENT;
+        msgsnd(msg_id_queue, &warning_master, sizeof(msg_conf) - sizeof(long), 0);
+        TEST_ERROR
+
+        #if DEBUG
+        printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n"
+                , pos_token + 1
+                , (long) getpid()
+                , id_pawn
+                , msg_id_queue);
+        #endif
+    } else {
+        sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
+        sops.sem_op = 1;
+        sops.sem_flg = 0;
+        semop(token_players, &sops, 1);
+        TEST_ERROR
+    }
+}
+
+void init_params_pawns(char *mode, char **param_pawns, char tmp_params[][sizeof(char *)]) {
     param_pawns[0] = "./bin/pedina";
     param_pawns[1] = mode;
     sprintf(tmp_params[0], "%d", token_players);
@@ -145,66 +201,6 @@ void init_pawns(char *mode) {
     sprintf(tmp_params[7], "%d", sm_id_cb);
     param_pawns[9] = tmp_params[7];
     param_pawns[10] = NULL;
-    
-    /* pedine ancora non piazzate con coord -1, -1 */
-    for(i = 0; i < SO_NUM_P; i++) {
-        sm_pawns_team[i].position.x = -1; 
-        sm_pawns_team[i].position.y = -1;
-        sm_pawns_team[i].objective.x = -1;
-        sm_pawns_team[i].objective.y = -1;
-        sm_pawns_team[i].id_flag = -1;
-    }
-
-    for(i = 0; i < SO_NUM_P; i++) {
-        /* token per piazzamento pedine */
-        sops.sem_num = pos_token;
-        sops.sem_op = -1;
-        sops.sem_flg = 0;
-        semop(token_players, &sops, 1);
-
-        #if DEBUG
-        /* printf("gioc %d: ped %d piazzata\n", pos_token, i); */
-        #endif
-
-        place_pawn(i);
-        
-        /* 
-        ultimo giocatore che piazza una pedina manda un messaggio al master
-        che piazzerá a sua volta le bandierine, non rilascia primo token
-        */
-        if(i == (SO_NUM_P - 1) && pos_token == (SO_NUM_G - 1)) { 
-        	warning_master.mtype = (long) getpid() + MSG_PLACEMENT;
-            msgsnd(msg_id_queue, &warning_master, sizeof(msg_conf) - sizeof(long), 0);
-            TEST_ERROR;
-
-            #if DEBUG
-            printf("gioc %d (%ld): ult ped %d, msg fine piazzam su coda %d\n", (pos_token + 1), (long) getpid(), i, msg_id_queue);
-            #endif
-        } else {
-            sops.sem_num = (pos_token == (SO_NUM_G - 1)) ? 0 : pos_token + 1;
-            sops.sem_op = 1;
-            sops.sem_flg = 0;
-            semop(token_players, &sops, 1);
-            TEST_ERROR;
-        }
-
-        /* passo indice ciclo a pedina per accesso diretto a propria struttura in array */
-        sprintf(tmp_params[4], "%d", i);
-        param_pawns[6] = tmp_params[4];
-
-        /* creazione proc pedine */
-        pids_pawns[i] = fork();
-
-        switch(pids_pawns[i]) {
-            case -1:
-                TEST_ERROR;
-                exit(EXIT_FAILURE);
-            case 0:
-                execv("./bin/pedina", param_pawns);
-                TEST_ERROR;
-                exit(EXIT_FAILURE);
-        }
-    }
 }
 
 void place_pawn(int id_pawn) {
@@ -224,7 +220,7 @@ void place_pawn(int id_pawn) {
     sops.sem_op = -1;
     sops.sem_flg = 0;
     semop(sem_id_cb, &sops, 1);
-    TEST_ERROR;
+    TEST_ERROR
 
     /* valorizzazione array ped in mc */
     sm_pawns_team[id_pawn].remaining_moves = SO_N_MOVES;
@@ -301,7 +297,7 @@ void init_objectives() {
     int i;
 
     sm_flags = (flag *) shmat(sm_id_flags, NULL, 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     #if DEBUG
     printf("gioc %d: collegamento a ind bandiere %d riuscito\n", (pos_token + 1), sm_id_flags);
@@ -311,14 +307,14 @@ void init_objectives() {
         scan_flag(i);
 
     shmdt(sm_flags);
-    TEST_ERROR;
+    TEST_ERROR
 
     for(i = 0; i < SO_NUM_P; i++) {
         if(sm_pawns_team[i].id_flag != -1) {
             msg_objective.mtype = (long) (pids_pawns[i] + MSG_OBJECTIVE);
 
             msgsnd(msg_id_queue, &msg_objective, sizeof(msg_conf) - sizeof(long), 0);
-            TEST_ERROR;
+            TEST_ERROR
 
             /* 
             msg per assicurarsi che prima dell'inizio di 
@@ -326,7 +322,7 @@ void init_objectives() {
             calcolino il proprio percorso
             */
             msgrcv(msg_id_queue, &msg_path, sizeof(msg_conf) - sizeof(long), (long) (pids_pawns[i] + MSG_PATH), 0);
-            TEST_ERROR;
+            TEST_ERROR
         }
     }
 
@@ -378,11 +374,12 @@ void scan_flag(int id_flag) {
         }
 
     /* 
-    esco dal ciclo se una pedina é stata assegnata alla 
-    bandiera oppure se nessuna delle pedine puó arrivarci
+    esce dal ciclo per almeno una di queste condizioni:
+    - una pedina é stata assegnata alla bandiera
+    - nessuna delle pedine puó arrivare alla bandiera
+    - il range é arrivato al numero massimo di mosse delle pedine
     */
-    } while(!team_pawn && pawns_count);
-    //if(pawns_count == 0) kill(getppid(), SIGINT);
+    } while(!team_pawn && pawns_count && range_scan <= SO_N_MOVES);
 }
 
 int assign_objective(coord check, int id_flag, int required_moves) {
@@ -434,26 +431,21 @@ void signal_handler(int signal_number) {
 					printf("OPS: kid %d is dead status %d\n", kidpid_ped, WEXITSTATUS(status));
 				}
 			}
-
+            
+            /* quando non ci sono piú pedine termino il processo */
 			if(errno == ECHILD) {
-				printf("\npedine ammazzate tutte!!!!!\n");
+                errno = 0;
+                
                 shmdt(sm_char_cb);
+                TEST_ERROR
                 shmdt(sm_pawns_team);
+                TEST_ERROR
+                free(pids_pawns);
+
                 exit(EXIT_SUCCESS);
 			}
             break;
     }
-
-    //signal(SIGUSR2, SIG_DFL);
-    
-    /* attesa terminazione di tutte le pedine */
-    // while(wait(&status) > 0);
-
-    // shmdt(sm_char_cb);
-
-    // shmdt(sm_pawns_team);
-
-    // exit(EXIT_SUCCESS);
 }
 
 #if DEBUG

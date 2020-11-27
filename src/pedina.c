@@ -4,10 +4,17 @@
 pawn *sm_pawns_team;
 char *sm_char_cb;
 long pid_master;
-int sm_id_team, msg_id_queue, sm_id_cb, sem_id_cb;
-int id_pawn_team, pos_token, token_players, id_move;
+int sm_id_team
+    , msg_id_queue
+    , sm_id_cb
+    , sem_id_cb
+    , id_pawn_team
+    , pos_token
+    , token_players
+    , id_move
+    , end_game;
 coord *path;
-int end_game;
+
 /* 
 parametri a pedine
 0 - path relativo file pedina
@@ -34,14 +41,14 @@ int main(int argc, char **argv) {
     get_config(argv[1]);
 
     signal(SIGUSR1, &signal_handler);
-    TEST_ERROR;
+    TEST_ERROR
 
     sm_pawns_team = (pawn *) shmat(sm_id_team, NULL, 0);
     sm_char_cb = (char *) shmat(sm_id_cb, NULL, 0);
 
     play_round();
 
-    //return 0;
+    return 0;
 }
 
 int wait_obj() {
@@ -51,7 +58,7 @@ int wait_obj() {
 
     /* ricezione messaggio con id di mc con bandiere */
     msgrcv(msg_id_queue, &msg_objective, sizeof(msg_conf) - sizeof(long), (long) (getpid() + MSG_OBJECTIVE), 0);
-    TEST_ERROR;
+    TEST_ERROR
     
     #if DEBUG
     printf("ped %d: msg obiettivo %d ricevuto\n", (id_pawn_team + 1), sm_pawns_team[id_pawn_team].id_flag);
@@ -68,10 +75,7 @@ int calc_path() {
 
     errno = 0;
 
-    /* 
-    nel caso di bandierina o casella occupata nel corso del round
-    elimino e rialloco array di mosse
-    */
+    /* elimino (dal secondo round) e alloco array di mosse */
     if(path != NULL) free(path);
     num_moves = calc_dist(sm_pawns_team[id_pawn_team].position, sm_pawns_team[id_pawn_team].objective);
     path = (coord *) calloc(num_moves, sizeof(coord));
@@ -111,7 +115,7 @@ int calc_path() {
     /* msg send fine calcolo path a giocatore prima di inizio round */
     msg_end_path.mtype = (long) (getpid() + MSG_PATH);
     msgsnd(msg_id_queue, &msg_end_path, sizeof(msg_conf) - sizeof(long), 0);
-    TEST_ERROR;
+    TEST_ERROR
 
     #if DEBUG
     /* printf("ped %d: msg fine calc path a gioc %d\n", (id_pawn_team + 1), pos_token); */
@@ -121,15 +125,13 @@ int calc_path() {
 }
 
 int move_pawn(int num_moves) {
-    int flag_captured;
+    int flag_taken;
     struct sembuf sops;
     struct timespec arg_sleep;
 
-    flag_captured = TRUE;
+    flag_taken = TRUE;
 
-    /* sm_char_cb[INDEX(sm_pawns_team[ind_ped_sq].position)] = '0'; */
-
-    for(id_move = 0; id_move < num_moves && flag_captured; id_move++) {
+    for(id_move = 0; id_move < num_moves && flag_taken; id_move++) {
         /* prima di ogni mossa controlla dalla scacchiera che l'obiettivo non sia stato giá preso */
         if(sm_char_cb[INDEX(sm_pawns_team[id_pawn_team].objective)] == 'B'
             #if DEBUG_BAND
@@ -148,16 +150,14 @@ int move_pawn(int num_moves) {
 
                 /* riprova dopo (SO_MIN_HOLD_NSEC / 2) se non riesce al primo tentativo */
                 if(semtimedop(sem_id_cb, &sops, 1, &arg_sleep) == -1)
-                    flag_captured = FALSE; /* richiesta nuovo obiettivo */
+                    flag_taken = FALSE; /* richiesta nuovo obiettivo */
                 else update_status();
 
             } else update_status();
-        } else flag_captured = FALSE;  /* richiesta nuovo obiettivo se viene preso suo obiettivo */
+        } else flag_taken = FALSE;  /* richiesta nuovo obiettivo se viene preso quello attualmente assegnato */
     }
 
-    /* sm_char_cb[INDEX(sm_pawns_team[ind_ped_sq].position)] = (pos_token + 1) + '0'; */
-
-    return flag_captured;
+    return flag_taken;
 }
 
 void update_status() {
@@ -173,8 +173,9 @@ void update_status() {
     sops.sem_op = 1;
     sops.sem_flg = 0;
     semop(sem_id_cb, &sops, 1);
-    TEST_ERROR;
+    TEST_ERROR
     
+    /* aggiorna i propri dati nella memoria condivisa */
     sm_pawns_team[id_pawn_team].position = path[id_move];
     sm_pawns_team[id_pawn_team].remaining_moves--;
     
@@ -217,22 +218,23 @@ void get_config(char *mode) {
         fscanf(fs, "%d%*[^\n]", &SO_N_MOVES);
         fscanf(fs, "%d%*[^\n]", &SO_MIN_HOLD_NSEC);
         fscanf(fs, "%d%*[^\n]", &DIST_PED);
-        /* TODO CONTROLLARE */
         fscanf(fs, "%d%*[0]", &DIST_BAND);
     } else {
         printf("Errore apertura file di configurazione\n");
         exit(0);
     }
 
+    free(config_file);
     fclose(fs);
 }
 
 void play_round() {
     int num_moves;
     struct sembuf sops;
-    msg_c_flag msg_captured;
+    msg_t_flag msg_taken;
 
     end_game = TRUE;
+
     do {
         num_moves = wait_obj();
 
@@ -243,15 +245,15 @@ void play_round() {
         semop(token_players, &sops, 1);
 
         if(move_pawn(num_moves)) {
-            msg_captured.id_flag = sm_pawns_team[id_pawn_team].id_flag;
-            msg_captured.pos_token = pos_token;
-            msg_captured.mtype = pid_master + (long) MSG_FLAG;
+            msg_taken.id_flag = sm_pawns_team[id_pawn_team].id_flag;
+            msg_taken.pos_token = pos_token;
+            msg_taken.mtype = pid_master + (long) MSG_FLAG;
 
             errno = 0;
             
             /* msg a master per bandiera presa */
-            msgsnd(msg_id_queue, &msg_captured, sizeof(msg_c_flag) - sizeof(long), 0);
-            TEST_ERROR;
+            msgsnd(msg_id_queue, &msg_taken, sizeof(msg_t_flag) - sizeof(long), 0);
+            TEST_ERROR
         }
         
     } while(end_game);
@@ -261,10 +263,14 @@ void signal_handler(int signal_number) {
     errno = 0;
 
     end_game = FALSE;
-            
+
     shmdt(sm_char_cb);
-    TEST_ERROR;
+    TEST_ERROR
     shmdt(sm_pawns_team);
-    TEST_ERROR;
+    TEST_ERROR
+    signal(SIGUSR1, SIG_DFL);
+    TEST_ERROR
+    free(path);
+
     exit(EXIT_SUCCESS);
 }

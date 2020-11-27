@@ -67,7 +67,7 @@ typedef struct _coordinates {
 typedef struct _flag {
     coord position;
     int points;
-    int captured;
+    int taken;
 } flag;
 
 typedef struct _pawn {
@@ -95,11 +95,11 @@ typedef struct _msg_flag {
 } msg_flag;
 
 /* messaggio usato per segnalare una bandiera presa */
-typedef struct _msg_captured_flag {
+typedef struct _msg_taken_flag {
     long mtype;
     int id_flag;
     int pos_token;
-} msg_c_flag;
+} msg_t_flag;
 
 /* 
 messaggio di conferma generale usato per
@@ -127,13 +127,21 @@ int DIST_BAND;
 /* calcolo distanza tra due coordinate con distanza di manhattan */
 int calc_dist(coord, coord);
 
-/* valorizzazione globali da file secondo modalitá
+/* 
+valorizzazione globali da file secondo modalitá
 param: 
-- modalitá selezionata */
+- modalitá selezionata 
+*/
 void get_config(char *);
 
-
+/*
+funzione per gestire i segnali ricevuti 
+param:
+- numero identificativo del segnale
+*/
 void signal_handler(int);
+
+/* funzione per la gestione dei round */
 void play_round();
 
 #if DEBUG
