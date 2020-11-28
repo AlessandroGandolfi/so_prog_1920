@@ -1,27 +1,24 @@
-cflags = -std=c89 -pedantic
+cflags = -std=c89 -pedantic -Wunused-variable
 mode ?= ""
 
-buildall: clock master giocatore pedina
+buildall: master giocatore pedina
 
 clean:
-	rm -f *o master giocatore pedina *~
+	rm -f *o bin/master bin/giocatore bin/pedina *~
 	ipcrm -a
 	-pkill -f ./pedina
 	-pkill -f ./giocatore
 
-master: master.c header.h Makefile
-	gcc $(cflags) master.c -o master
+master: src/master.c src/header.h Makefile
+	gcc $(cflags) src/master.c -o bin/master
 
-giocatore: giocatore.c header.h Makefile
-	gcc $(cflags) giocatore.c -o giocatore
+giocatore: src/giocatore.c src/header.h Makefile
+	gcc $(cflags) src/giocatore.c -o bin/giocatore
 
-pedina: pedina.c header.h Makefile
-	gcc $(cflags) pedina.c -o pedina
+pedina: src/pedina.c src/header.h Makefile
+	gcc $(cflags) src/pedina.c -o bin/pedina
 
-clock:
-	touch *.c *.h
-
-all: clock buildall run
+all: buildall run
 
 run:
-	./master $(mode)
+	./bin/master $(mode)
