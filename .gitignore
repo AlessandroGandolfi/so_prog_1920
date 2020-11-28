@@ -1,11 +1,12 @@
 /*
 /config/*
-/bin/giocatore
-/bin/pedina
-/bin/master
+/src/*
 !/src
 !/src/*.c
 !/src/*.h
 !makefile
 !/config
 !/config/*.txt
+bin/pedina
+bin/giocatore
+bin/master
