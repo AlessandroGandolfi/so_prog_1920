@@ -250,9 +250,8 @@ int check_pos_pawns(coord box, int num_pawns_placed) {
     return TRUE;
 }
 
-
-int calc_dist(coord cas1, coord cas2) {
-    return abs(cas1.x - cas2.x) + abs(cas1.y - cas2.y);
+int calc_dist(coord box1, coord box2) {
+    return abs(box1.x - box2.x) + abs(box1.y - box2.y);
 }
 
 void play_round() {
