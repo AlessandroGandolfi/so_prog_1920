@@ -248,7 +248,7 @@ void print_info_round(){
             total_points += players[i].points;
             used_moves = (SO_NUM_P * SO_N_MOVES) - players[i].total_rem_moves;
             printf("Rapporti giocatore %d:\n", i + 1);
-            printf("Mosse utilizzate/mosse totali: %.3f\n", used_moves / (SO_NUM_P * SO_N_MOVES));
+            printf("Percentuale mosse utilizzate: %.3f%%\n", used_moves / (SO_NUM_P * SO_N_MOVES) * 100.0);
             printf("Punti ottenuti/mosse utilizzate: %.3f\n\n", players[i].points / used_moves);
         }
 
@@ -573,8 +573,6 @@ void signal_handler(int signal_number) {
             for(i = 0; i < SO_NUM_G; i++)
                 kill(-players[i].pid, SIGUSR1);
 
-            print_chessboard();
-
             while(TRUE) pause();
             break;
         
@@ -589,6 +587,8 @@ void signal_handler(int signal_number) {
 			if(errno == ECHILD) {
                 errno = 0;
                 
+                print_chessboard();
+
                 remove_resources();
 
                 signal(SIGALRM, SIG_DFL);
