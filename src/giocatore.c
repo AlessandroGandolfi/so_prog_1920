@@ -267,10 +267,8 @@ void play_round() {
         #endif
 
         /* ricezione messaggio con id di mc con bandiere */
-        do {
-            errno = 0;
-            msgrcv(msg_id_queue, &msg_new_band, sizeof(msg_flag) - sizeof(long), (long) (getpid() + MSG_FLAG), 0);
-        } while(errno == EINTR);
+        msgrcv(msg_id_queue, &msg_new_band, sizeof(msg_flag) - sizeof(long), (long) (getpid() + MSG_FLAG), 0);
+        TEST_ERROR
 
         sm_id_flags = msg_new_band.sm_id_flags;
         num_flags_round = msg_new_band.num_flags;

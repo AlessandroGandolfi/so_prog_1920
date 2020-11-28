@@ -67,7 +67,6 @@ typedef struct _coordinates {
 typedef struct _flag {
     coord position;
     int points;
-    int taken;
 } flag;
 
 typedef struct _pawn {

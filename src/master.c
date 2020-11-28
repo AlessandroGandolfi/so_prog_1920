@@ -396,17 +396,14 @@ void wait_flag_taken(int num_flags){
         msgrcv(msg_id_queue, &msg_taken, sizeof(msg_t_flag) - sizeof(long), (long) (getpid() + MSG_FLAG), 0);
         TEST_ERROR
 
-        if(!sm_flags[msg_taken.id_flag].taken) {
-            #if DEBUG
-            printf("band %d presa da gioc %d, %d punti\n"
-                , msg_taken.id_flag
-                , (msg_taken.pos_token + 1)
-                , sm_flags[msg_taken.id_flag].points);
-            #endif
+        #if DEBUG
+        printf("band %d presa da gioc %d, %d punti\n"
+            , msg_taken.id_flag
+            , (msg_taken.pos_token + 1)
+            , sm_flags[msg_taken.id_flag].points);
+        #endif
 
-            sm_flags[msg_taken.id_flag].taken = TRUE;
-            players[msg_taken.pos_token].points += sm_flags[msg_taken.id_flag].points;
-        } else i--;
+        players[msg_taken.pos_token].points += sm_flags[msg_taken.id_flag].points;
     }
 }
 
@@ -490,7 +487,6 @@ void set_flags_pos_points(int i, int num_flags, int tot_rem_points, coord box){
 
     /* valorizzazione mc bandiere */
     sm_flags[i].position = box;
-    sm_flags[i].taken = FALSE;
     
     /* 
     una bandiera vale al massimo la metá dei punti rimanenti 
@@ -578,7 +574,7 @@ void signal_handler(int signal_number) {
         
         case SIGCHLD:
             while((kidpid = waitpid(-1, &status, WNOHANG)) > 0) {
-				if (WEXITSTATUS(status) != 0) {
+				if(WEXITSTATUS(status) != 0) {
 					printf("OPS: kid %d is dead status %d\n", kidpid, WEXITSTATUS(status));
 				}
 			}
