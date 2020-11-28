@@ -168,7 +168,7 @@ void remove_resources() {
 }
 
 void print_chessboard() {
-    int i, j;
+    int i;
     errno = 0;
 
     remaining_moves();
@@ -587,10 +587,17 @@ void signal_handler(int signal_number) {
 
             /* quando non ci sono piú giocatori termino il processo */
 			if(errno == ECHILD) {
+                errno = 0;
+                
                 remove_resources();
+
                 signal(SIGALRM, SIG_DFL);
+                TEST_ERROR
                 signal(SIGINT, SIG_DFL);
+                TEST_ERROR
                 signal(SIGCHLD, SIG_DFL);
+                TEST_ERROR
+
                 exit(EXIT_SUCCESS);
 			}
             break;

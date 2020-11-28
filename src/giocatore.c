@@ -28,7 +28,6 @@ parametri a giocatore
 */
 int main(int argc, char **argv) {
     struct sigaction new_signal_handler;
-    sigset_t block_mask;
 
     get_config(argv[1]);
 
@@ -415,7 +414,7 @@ int assign_objective(coord check, int id_flag, int required_moves) {
 }
 
 void signal_handler(int signal_number) {
-    int i, status, kidpid_ped;
+    int status, kidpid_ped;
     
     errno = 0;
 
@@ -440,7 +439,12 @@ void signal_handler(int signal_number) {
                 TEST_ERROR
                 shmdt(sm_pawns_team);
                 TEST_ERROR
+                signal(SIGUSR1, SIG_DFL);
+                TEST_ERROR
+                signal(SIGCHLD, SIG_DFL);
+                TEST_ERROR
                 free(pids_pawns);
+                TEST_ERROR
 
                 exit(EXIT_SUCCESS);
 			}

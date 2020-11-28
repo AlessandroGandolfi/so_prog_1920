@@ -271,6 +271,7 @@ void signal_handler(int signal_number) {
     signal(SIGUSR1, SIG_DFL);
     TEST_ERROR
     free(path);
+    TEST_ERROR
 
     exit(EXIT_SUCCESS);
 }

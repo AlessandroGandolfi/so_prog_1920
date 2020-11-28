@@ -123,7 +123,6 @@ int SO_MIN_HOLD_NSEC;
 int DIST_PED;
 int DIST_BAND;
 
-
 /* calcolo distanza tra due coordinate con distanza di manhattan */
 int calc_dist(coord, coord);
 

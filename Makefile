@@ -1,4 +1,4 @@
-cflags = -std=c89 -pedantic
+cflags = -std=c89 -pedantic -Wunused-variable
 mode ?= ""
 
 buildall: master giocatore pedina
@@ -17,9 +17,6 @@ giocatore: src/giocatore.c src/header.h Makefile
 
 pedina: src/pedina.c src/header.h Makefile
 	gcc $(cflags) src/pedina.c -o bin/pedina
-
-#clock:
-#	touch src/*.c src/*.h
 
 all: buildall run
 
