@@ -140,31 +140,44 @@ void remove_resources() {
     int i;
     errno = 0;
 
-    semctl(sem_id_cb, 0, IPC_RMID);
-    TEST_ERROR
-
-    for(i = 0; i < SO_NUM_G; i++) {
-        shmctl(players[i].sm_id_team, IPC_RMID, NULL);
+    if(sem_id_cb) {
+        semctl(sem_id_cb, 0, IPC_RMID);
         TEST_ERROR
     }
 
-    free(players);
+    for(i = 0; i < SO_NUM_G; i++) {
+        if(players[i].sm_id_team) {
+            shmctl(players[i].sm_id_team, IPC_RMID, NULL);
+            TEST_ERROR
+        }
+    }
+
+    if(players)
+        free(players);
     
-    shmdt(sm_flags);
-    TEST_ERROR
-	shmctl(sm_id_flags, IPC_RMID, NULL);
-    TEST_ERROR
+    if(sm_id_flags) {
+        shmdt(sm_flags);
+        TEST_ERROR
+        shmctl(sm_id_flags, IPC_RMID, NULL);
+        TEST_ERROR
+    }
 
-    shmdt(sm_char_cb);
-    TEST_ERROR
-	shmctl(sm_id_cb, IPC_RMID, NULL);
-    TEST_ERROR
+    if(sm_id_cb) {
+        shmdt(sm_char_cb);
+        TEST_ERROR
+        shmctl(sm_id_cb, IPC_RMID, NULL);
+        TEST_ERROR
+    }
 
-    semctl(token_players, 0, IPC_RMID);
-    TEST_ERROR
+    if(token_players) {
+        semctl(token_players, 0, IPC_RMID);
+        TEST_ERROR
+    }
 
-    msgctl(msg_id_queue, IPC_RMID, NULL);
-    TEST_ERROR
+    if(msg_id_queue) {
+        msgctl(msg_id_queue, IPC_RMID, NULL);
+        TEST_ERROR
+    }
 }
 
 void print_chessboard() {
@@ -304,7 +317,7 @@ void init_params_players(char *mode, char **param_players, char tmp_params[][siz
     param_players[8] = NULL;
 }
 
-void create_players(char ** param_players, char tmp_params[][sizeof(char *)]){
+void create_players(char **param_players, char tmp_params[][sizeof(char *)]){
     int i;
 
     for(i = 0; i < SO_NUM_G; i++) {
