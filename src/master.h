@@ -70,7 +70,7 @@ int init_flags();
 valorizzazione mc bandiere, assegnazione punti bandiere e 
 piazzamento su scacchiera 
 */
-void set_flags_pos_points(int, int, int, coord);
+void set_flags_pos_points(int, int, int*, coord);
 
 /* invia messaggio a giocatori per piazzamento bandierina */
 void send_msg_new_band(int, int, msg_flag);

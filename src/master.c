@@ -471,7 +471,7 @@ int init_flags() {
             box.x = rand() % SO_BASE;
         } while(!check_flags_pos(box, i));
 
-        set_flags_pos_points(i, num_flags, tot_rem_points, box);
+        set_flags_pos_points(i, num_flags, &tot_rem_points, box);
     }
     
     #if DEBUG
@@ -505,7 +505,7 @@ int init_flags() {
     return num_flags;
 }
 
-void set_flags_pos_points(int i, int num_flags, int tot_rem_points, coord box){
+void set_flags_pos_points(int i, int num_flags, int* tot_rem_points, coord box){
 
     /* valorizzazione mc bandiere */
     sm_flags[i].position = box;
@@ -515,13 +515,13 @@ void set_flags_pos_points(int i, int num_flags, int tot_rem_points, coord box){
     da distribuire a meno che non sia l'ultima da piazzare 
     */
     if(i != (num_flags - 1))
-        sm_flags[i].points = rand() % (tot_rem_points / 2);
+        sm_flags[i].points = rand() % (*tot_rem_points / 2);
     else
-        sm_flags[i].points = tot_rem_points;
-    tot_rem_points -= sm_flags[i].points;
+        sm_flags[i].points = *tot_rem_points;
+    *tot_rem_points -= sm_flags[i].points;
     /* valgono almeno un punto */
     sm_flags[i].points++;
-
+    
     /* piazzamento bandiere su scacchiera */
     sm_char_cb[INDEX(box)] = 'B';
 
