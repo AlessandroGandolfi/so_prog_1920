@@ -30,11 +30,11 @@ int main(int argc, char **argv) {
     start_time = time(NULL);
     srand(start_time + getpid());
 
-    signal(SIGINT, &signal_handler);
-    TEST_ERROR
     signal(SIGALRM, &signal_handler);
     TEST_ERROR
     signal(SIGCHLD, &signal_handler);
+    TEST_ERROR
+    signal(SIGINT, &signal_handler);
     TEST_ERROR
 
     init_resources();
@@ -134,6 +134,9 @@ void init_sem_chessboard() {
 
     semctl(sem_id_cb, 0, SETALL, sem_arg);
     TEST_ERROR
+
+    free(sem_arg.array);
+    TEST_ERROR
 }
 
 void remove_resources() {
@@ -146,7 +149,7 @@ void remove_resources() {
     }
 
     for(i = 0; i < SO_NUM_G; i++) {
-        if(players[i].sm_id_team) {
+        if(players && players[i].sm_id_team) {
             shmctl(players[i].sm_id_team, IPC_RMID, NULL);
             TEST_ERROR
         }
@@ -285,6 +288,9 @@ void init_players(char *mode) {
     token_players = semget(IPC_PRIVATE, SO_NUM_G, 0600);
     TEST_ERROR
     semctl(token_players, 0, SETALL, sem_arg);
+    TEST_ERROR
+
+    free(sem_arg.array);
     TEST_ERROR
 
     init_params_players(mode, param_players, tmp_params);
@@ -478,7 +484,9 @@ int init_flags() {
     sem_arg.array = (unsigned short *) calloc(SO_NUM_G, sizeof(unsigned short));
     for(i = 0; i < SO_NUM_G; i++) sem_arg.array[i] = 1;
     semctl(token_players, 0, SETALL, sem_arg);
+    TEST_ERROR
     free(sem_arg.array);
+    TEST_ERROR
 
     #if DEBUG
     test_sem_token();
@@ -578,6 +586,9 @@ void signal_handler(int signal_number) {
             end_game = TRUE;
             end_time = time(NULL);
 
+            /* se le risorse non sono ancora state allocate allora termino l'esecuzione */
+            if(!players) kill(getpid(), SIGCHLD);
+
             /* invio segnale fine gioco a giocatori e relative pedine */
             for(i = 0; i < SO_NUM_G; i++)
                 kill(-players[i].pid, SIGUSR1);
@@ -596,7 +607,8 @@ void signal_handler(int signal_number) {
 			if(errno == ECHILD) {
                 errno = 0;
                 
-                print_chessboard();
+                /* se le risorse non sono ancora state allocate non stampo la scacchiera */
+                if(sm_char_cb) print_chessboard();
 
                 remove_resources();
 
