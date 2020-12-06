@@ -195,7 +195,8 @@ void get_config(char *mode) {
     FILE *fs;
     char *config_file;
 
-    config_file = (char *) malloc(sizeof(char) * 10);
+    /* 9 per ./config/, sizeof(mode) per modalitá scelta + \0, 4 per ./txt */
+    config_file = (char *) calloc(9 + sizeof(mode) + 4, sizeof(char));
     strcpy(config_file, "./config/");
     strcat(config_file, mode);
     strcat(config_file, ".txt");
